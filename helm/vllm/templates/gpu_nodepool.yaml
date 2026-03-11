@@ -46,6 +46,18 @@ spec:
     # - id: ami-0033dd75f1e9f764d
     - id: {{ .Values.compute.gpu.amiId }}
   role: {{ .Values.compute.gpu.iamRole }}
+  {{- with .Values.compute.gpu.blockDeviceMappings }}
+  blockDeviceMappings:
+    {{- range . }}
+    - deviceName: {{ .deviceName }}
+      ebs:
+        volumeSize: {{ .volumeSize }}
+        volumeType: {{ .volumeType }}
+        {{- if .encrypted }}
+        encrypted: {{ .encrypted }}
+        {{- end }}
+    {{- end }}
+  {{- end }}
   subnetSelectorTerms:
     - tags:
         karpenter.sh/discovery: {{ .Values.cluster.name }}

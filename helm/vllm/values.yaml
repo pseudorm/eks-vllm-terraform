@@ -21,12 +21,11 @@ image:
   command: ["/bin/bash", "-c"]
   args:
     - |
-      vllm serve Qwen/Qwen3.5-9B \
+      vllm serve {{ .Values.model.name }} \
         --trust-remote-code \
         --enable-chunked-prefill \
         --max_num_batched_tokens 4096
-
-
+        --dtype fp16
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
@@ -78,8 +77,8 @@ ingress:
   className: ""
   annotations: 
     kubernetes.io/ingress.class: alb,
-    alb.ingress.kubernetes.io/scheme: internet-facing,
-    alb.ingress.kubernetes.io/target-type: ip,
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
     # alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
 
@@ -119,11 +118,11 @@ httpRoute:
 resources:
   limits:
     cpu: "4"
-    memory: "16Gi"
+    memory: "24Gi"
     nvidia.com/gpu: "1"
   requests:
     cpu: "4"
-    memory: "16Gi"
+    memory: "24Gi"
     nvidia.com/gpu: "1"
 
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
@@ -155,7 +154,7 @@ volumes:
   - name: shm
     emptyDir:
       medium: Memory
-      sizeLimit: "2Gi"
+      sizeLimit: "8Gi"
 
 # Additional volumeMounts on the output Deployment definition.
 volumeMounts: 
@@ -180,7 +179,7 @@ compute:
     amiId: "ami-0033dd75f1e9f764d"
     iamRole: "karpenter-eks-node-group-20260303082358806200000004"
     gpuType: "a10g"
-    instanceTypes: ["g5.xlarge", "g5.2xlarge"]
+    instanceTypes: ["g5.2xlarge", "g5.4xlarge", "g5.8xlarge", "g5.12xlarge"]
     capacityTypes: ["spot", "on-demand"]
     labels:
       role: gpu-worker
@@ -190,4 +189,13 @@ compute:
       memory: "320Gi"
       numGPUs: "10"
     disruption:
-      consolidateAfter: "5m"
+      policy: "bestEffort"
+      consolidateAfter: "10m"
+    blockDeviceMappings:
+      - deviceName: /dev/xvda
+        volumeSize: "4Gi"
+        volumeType: gp3
+      - deviceName: /dev/xvdb
+        volumeSize: "100Gi"
+        volumeType: gp3
+        encrypted: true
