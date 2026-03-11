@@ -8,6 +8,9 @@ cluster:
 # This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 1
 
+model:
+  name: Qwen/Qwen3.5-9B
+
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
   repository: 169446447120.dkr.ecr.ap-east-1.amazonaws.com/docker-hub/vllm/vllm-openai
@@ -15,6 +18,15 @@ image:
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest-cu130"
+  
+  command: ["/bin/bash", "-c"]
+  args: 
+    - "vllm-server --model {{ .Values.model.name }}"
+    - "--trust-remote-code"
+    - "--enable-chunked-prefill"
+    - "--max_num_batched_tokens 4096"
+
+
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
