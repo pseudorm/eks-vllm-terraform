@@ -1,0 +1,56 @@
+
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: {{ .Values.compute.gpu.name }}
+spec:
+  template:
+    metadata:
+      {{- if .Values.compute.gpu.labels }}
+        labels:
+          {{- toYaml .Values.compute.gpu.labels }}
+      {{- end }}
+    spec:
+      requirements:
+        - key: node.kubernetes.io/instance-type
+          operator: In
+          values: {{ .Values.compute.gpu.instanceTypes }} # p4d.24xlarge, g5.48xlarge
+        - key: "karpenter.sh/capacity-type"
+          operator: In
+          values: {{ .Values.compute.gpu.capacityTypes }} # spot, on-demand
+      taints:
+        - key: nvidia.com/gpu
+          value: "true"
+          effect: NoSchedule
+      nodeClassRef:
+        name: {{ .Values.nodeClass.gpu.name }}
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+      expireAfter: 720h
+  limits:
+    cpu: {{ .Values.compute.gpu.limits.cpu | default "80" }}
+    memory: {{ .Values.compute.gpu.limits.memory | default "320Gi" }}
+    nvidia.com/gpu: {{ .Values.compute.gpu.limits.numGPUs | default "10" }}
+  disruption:
+    consolidationPolicy: WhenEmpty
+    consolidateAfter: {{ .Values.compute.gpu.disruption.consolidateAfter | default "15m" }}
+
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: {{ .Values.nodeClass.gpu.name }}
+spec:
+  amiFamily: {{ .Values.nodeClass.gpu.amiFamily }}
+  amiSelectorTerms:
+    # - id: ami-0033dd75f1e9f764d
+    - id: {{ .Values.nodeClass.gpu.amiId }}
+  role: {{ .Values.nodeClass.gpu.iamRole }}
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: {{ .Values.cluster.name }}
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: {{ .Values.cluster.name }}
+  tags:
+    nvidia.com/gpu: "true"
