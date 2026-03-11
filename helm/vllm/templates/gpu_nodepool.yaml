@@ -7,8 +7,8 @@ spec:
   template:
     metadata:
       {{- if .Values.compute.gpu.labels }}
-        labels:
-          {{ .Values.compute.gpu.labels }}
+      labels:
+        {{- toYaml .Values.compute.gpu.labels | nindent 8 }}
       {{- end }}
     spec:
       requirements:

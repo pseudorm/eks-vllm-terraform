@@ -18,13 +18,13 @@ image:
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest-cu130"
-  
   command: ["/bin/bash", "-c"]
-  args: 
-    - "vllm-server --model {{ .Values.model.name }}"
-    - "--trust-remote-code"
-    - "--enable-chunked-prefill"
-    - "--max_num_batched_tokens 4096"
+  args:
+    - |
+      vllm serve Qwen/Qwen3.5-9B \
+        --trust-remote-code \
+        --enable-chunked-prefill \
+        --max_num_batched_tokens 4096
 
 
 
@@ -116,12 +116,11 @@ httpRoute:
         type: PathPrefix
         value: /headers
 
-resources: 
+resources:
   limits:
-    # matching the nodepool's limit
-    cpu: "80"
-    memory: "320Gi"
-    nvidia.com/gpu: "10"
+    cpu: "4"
+    memory: "16Gi"
+    nvidia.com/gpu: "1"
   requests:
     cpu: "4"
     memory: "16Gi"
@@ -181,7 +180,7 @@ affinity: {}
 compute:
   gpu:
     name: "gpu-a10g-ec2"
-    amiFamily: "BottleRocket"
+    amiFamily: "Bottlerocket"
     amiId: "ami-0033dd75f1e9f764d"
     iamRole: "karpenter-eks-node-group-20260303082358806200000004"
     gpuType: "a10g"

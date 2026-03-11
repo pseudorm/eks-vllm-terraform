@@ -33,7 +33,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
-        - name: vllm-{{ .Values.model.name | replace "/" "-" }}
+        - name: vllm-{{ .Values.model.name | replace "/" "-" | replace "." "-" | lower }}
           {{- with .Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
@@ -42,11 +42,11 @@ spec:
           # Container image specific
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- with .Values.command }}
+          {{- with .Values.image.command }}
           command:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.args }}
+          {{- with .Values.image.args }}
           args:
             {{- toYaml . | nindent 12 }}
           {{- end }}
