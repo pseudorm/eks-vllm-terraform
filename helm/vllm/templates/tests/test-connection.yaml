@@ -13,4 +13,3 @@ spec:
       command: ['wget']
       args: ['{{ include "vllm.fullname" . }}:{{ .Values.service.port }}']
   restartPolicy: Never
-a

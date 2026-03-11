@@ -2,6 +2,9 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+cluster:
+  name: "eks-ai-ape1"
+
 # This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
 replicaCount: 1
 
@@ -22,7 +25,7 @@ fullnameOverride: ""
 # This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
 serviceAccount:
   # Specifies whether a service account should be created.
-  create: true
+  create: false
   # Automatically mount a ServiceAccount's API credentials?
   automount: true
   # Annotations to add to the service account.
@@ -54,28 +57,25 @@ service:
   # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
   type: ClusterIP
   # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
-  port: 443
+  port: 80
+  targetPort: 8000
 
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
   enabled: false
   className: ""
-  annotations: {
+  annotations: 
     kubernetes.io/ingress.class: alb,
     alb.ingress.kubernetes.io/scheme: internet-facing,
     alb.ingress.kubernetes.io/target-type: ip,
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":443}]'
-  }
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    # alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
+
   hosts:
-    - host: chart-example.local
+    - host: vllm-server
       paths:
         - path: /
           pathType: ImplementationSpecific
-          backend:
-            service:
-              name: {{ include "vllm.fullname" . }}
-              port:
-                number: {{ .Values.service.port }}
   tls: []
     # - secretName: chart-example-tls
     #   hosts:
@@ -103,43 +103,32 @@ httpRoute:
     - path:
         type: PathPrefix
         value: /headers
-  #   filters:
-  #   - type: RequestHeaderModifier
-  #     requestHeaderModifier:
-  #       set:
-  #       - name: My-Overwrite-Header
-  #         value: this-is-the-only-value
-  #       remove:
-  #       - User-Agent
-  # - matches:
-  #   - path:
-  #       type: PathPrefix
-  #       value: /echo
-  #     headers:
-  #     - name: version
-  #       value: v2
 
-resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+resources: 
+  limits:
+    # matching the nodepool's limit
+    cpu: "80"
+    memory: "320Gi"
+    nvidia.com/gpu: "10"
+  requests:
+    cpu: "4"
+    memory: "16Gi"
+    nvidia.com/gpu: "1"
 
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 livenessProbe:
   httpGet:
-    path: /
-    port: http
+    path: /health
+    port: 8000
+  initialDelaySeconds: 60
+  periodSeconds: 30
 readinessProbe:
   httpGet:
-    path: /
-    port: http
+    path: /health
+    port: 8000
+  initialDelaySeconds: 60
+  periodSeconds: 5
+  
 
 # This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
 autoscaling:
@@ -150,29 +139,30 @@ autoscaling:
   # targetMemoryUtilizationPercentage: 80
 
 # Additional volumes on the output Deployment definition.
-volumes: []
+volumes: 
+  # vLLM needs to access the host's shared memory for tensor parallel inference.
+  - name: shm
+    emptyDir:
+      medium: Memory
+      sizeLimit: "2Gi"
   # - name: foo
   #   secret:
   #     secretName: mysecret
   #     optional: false
 
 # Additional volumeMounts on the output Deployment definition.
-volumeMounts: []
-  # - name: foo
-  #   mountPath: "/etc/foo"
-  #   readOnly: true
+volumeMounts: 
+  - name: shm
+    mountPath: /dev/shm
 
-nodeSelector: {
+nodeSelector: 
   role: gpu-worker
-}
 
-tolerations: [
-  {
-    key: "nvidia.com/gpu",
-    operator: "Exists",
+tolerations: 
+  - 
+    key: "nvidia.com/gpu"
+    operator: "Exists"
     effect: "NoSchedule"
-  }
-]
 
 affinity: {}
 
@@ -188,3 +178,9 @@ compute:
     labels:
       role: gpu-worker
       gpu-type: a10g
+    limits:
+      cpu: "80"
+      memory: "320Gi"
+      numGPUs: "10"
+    disruption:
+      consolidateAfter: "15m"
