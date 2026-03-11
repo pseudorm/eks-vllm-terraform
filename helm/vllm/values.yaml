@@ -13,7 +13,7 @@ model:
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: 169446447120.dkr.ecr.ap-east-1.amazonaws.com/docker-hub/library/vllm/vllm-openai
+  repository: 169446447120.dkr.ecr.ap-east-1.amazonaws.com/docker-hub/vllm/vllm-openai
   # This sets the pull policy for images.
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
