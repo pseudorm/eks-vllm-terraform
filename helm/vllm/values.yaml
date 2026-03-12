@@ -176,7 +176,7 @@ compute:
   gpu:
     name: "gpu-a10g-ec2"
     amiFamily: "Bottlerocket"
-    amiId: "ami-0033dd75f1e9f764d"
+    amiId: "ami-0039dfc93ea8e2c4e"
     iamRole: "karpenter-eks-node-group-20260303082358806200000004"
     gpuType: "a10g"
     instanceTypes: 
