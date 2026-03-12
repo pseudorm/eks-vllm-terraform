@@ -21,12 +21,7 @@ image:
   command: ["/bin/bash", "-c"]
   args:
     - |
-      vllm serve \ 
-        --model Qwen/Qwen3.5-9B \
-        --trust-remote-code \
-        --enable-chunked-prefill \
-        --max_num_batched_tokens 4096 \
-        --dtype bfloat16
+      vllm serve --config /etc/vllm/config.yaml
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
@@ -205,3 +200,12 @@ compute:
         volumeSize: "100Gi"
         volumeType: gp3
         encrypted: true
+
+# vLLM configuration using YAML config file
+vllm:
+  config:
+    model: Qwen/Qwen3.5-9B
+    trust_remote_code: true
+    dtype: bfloat16
+    enable_chunked_prefill: true
+    max_num_batched_tokens: 4096
