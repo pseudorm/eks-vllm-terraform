@@ -6,4 +6,4 @@ metadata:
     {{- include "vllm-host.labels" . | nindent 4 }}
 data:
   config.yaml: |
-    {{- toYaml .Values.vllm-host.config | nindent 4 }}
+    {{- toYaml .Values.vllm.config | nindent 4 }}

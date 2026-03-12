@@ -68,7 +68,7 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
-            {{- if .Values.vllm-host.config }}
+            {{- if .Values.vllm.config }}
             - name: vllm-config
               mountPath: /etc/vllm
               readOnly: true
@@ -77,7 +77,7 @@ spec:
             {{- toYaml . | nindent 12 }}
             {{- end }}
       volumes:
-        {{- if .Values.vllm-host.config }}
+        {{- if .Values.vllm.config }}
         - name: vllm-config
           configMap:
             name: {{ include "vllm-host.fullname" . }}-config
