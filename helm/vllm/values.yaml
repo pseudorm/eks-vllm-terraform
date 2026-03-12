@@ -179,8 +179,14 @@ compute:
     amiId: "ami-0033dd75f1e9f764d"
     iamRole: "karpenter-eks-node-group-20260303082358806200000004"
     gpuType: "a10g"
-    instanceTypes: ["g5.2xlarge", "g5.4xlarge", "g5.8xlarge", "g5.12xlarge"]
-    capacityTypes: ["spot", "on-demand"]
+    instanceTypes: 
+      - "g5.2xlarge"
+      - "g5.4xlarge"
+      - "g5.8xlarge"
+      - "g5.12xlarge"
+    capacityTypes: 
+      - "spot"
+      - "on-demand"
     labels:
       role: gpu-worker
       gpu-type: a10g
