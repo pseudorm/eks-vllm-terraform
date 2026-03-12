@@ -122,18 +122,25 @@ resources:
     nvidia.com/gpu: "1"
 
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+startupProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  failureThreshold: 30  # 30 * 10s = 5 minutes for model loading
 livenessProbe:
   httpGet:
     path: /health
     port: 8000
-  initialDelaySeconds: 60
   periodSeconds: 30
+  failureThreshold: 3
 readinessProbe:
   httpGet:
     path: /health
     port: 8000
-  initialDelaySeconds: 60
   periodSeconds: 5
+  failureThreshold: 3
   
 
 # This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
