@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "vllm.fullname" . }}-config
+  name: {{ include "vllm-host.fullname" . }}-config
   labels:
-    {{- include "vllm.labels" . | nindent 4 }}
+    {{- include "vllm-host.labels" . | nindent 4 }}
 data:
   config.yaml: |
-    {{- toYaml .Values.vllm.config | nindent 4 }}
+    {{- toYaml .Values.vllm-host.config | nindent 4 }}

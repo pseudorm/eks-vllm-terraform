@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "vllm.fullname" . }}
+  name: {{ include "vllm-host.fullname" . }}
   labels:
-    {{- include "vllm.labels" . | nindent 4 }}
+    {{- include "vllm-host.labels" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -35,7 +35,7 @@ spec:
             {{- end }}
             backend:
               service:
-                name: {{ include "vllm.fullname" $ }}
+                name: {{ include "vllm-host.fullname" $ }}
                 port:
                   number: {{ $.Values.service.port }}
           {{- end }}

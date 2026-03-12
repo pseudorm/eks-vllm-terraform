@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "vllm.fullname" . }}
+  name: {{ include "vllm-host.fullname" . }}
   labels:
-    {{- include "vllm.labels" . | nindent 4 }}
+    {{- include "vllm-host.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "vllm.selectorLabels" . | nindent 6 }}
+      {{- include "vllm-host.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -18,7 +18,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "vllm.labels" . | nindent 8 }}
+        {{- include "vllm-host.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -27,7 +27,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "vllm.serviceAccountName" . }}
+      serviceAccountName: {{ include "vllm-host.serviceAccountName" . }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -68,7 +68,7 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
-            {{- if .Values.vllm.config }}
+            {{- if .Values.vllm-host.config }}
             - name: vllm-config
               mountPath: /etc/vllm
               readOnly: true
@@ -77,10 +77,10 @@ spec:
             {{- toYaml . | nindent 12 }}
             {{- end }}
       volumes:
-        {{- if .Values.vllm.config }}
+        {{- if .Values.vllm-host.config }}
         - name: vllm-config
           configMap:
-            name: {{ include "vllm.fullname" . }}-config
+            name: {{ include "vllm-host.fullname" . }}-config
         {{- end }}
         {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}

@@ -2,14 +2,14 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "vllm.fullname" . }}
+  name: {{ include "vllm-host.fullname" . }}
   labels:
-    {{- include "vllm.labels" . | nindent 4 }}
+    {{- include "vllm-host.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "vllm.fullname" . }}
+    name: {{ include "vllm-host.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:
