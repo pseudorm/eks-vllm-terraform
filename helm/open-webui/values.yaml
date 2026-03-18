@@ -151,7 +151,7 @@ nodes:
   name: open-webui-nodes
   amiId: ami-045aefcf04d3758f6
   amiFamily: Bottlerocket
-  iamRole: arn:aws:iam::169446447120:role/karpenter-node-role
+  iamRole: karpenter-eks-node-group-20260303082358806200000004
 
   labels:
     role: cpu-worker
