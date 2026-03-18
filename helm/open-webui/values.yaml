@@ -145,7 +145,10 @@ environmentVariables:
   - name: "DATABASE_USER"
     value: "postgres"
   - name: "DATABASE_PASSWORD"
-    value: "899089Kg!"
+    valueFrom:
+      secretKeyRef:
+        name: open-webui-db
+        key: password
 
 nodes:
   nodepool_name: open-webui-nodepool
