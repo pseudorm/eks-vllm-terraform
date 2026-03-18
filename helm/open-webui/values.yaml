@@ -152,7 +152,7 @@ environmentVariables:
   - name: DATBASE_NAME
     value: "open_webui"
   - name: DATABASE_URL
-    value: "postgresql://rds-ai-platform-application-dev.cfuasi8g6rbt.ap-east-1.rds.amazonaws.com"
+    value: "postgresql://postgres:899089Kg@rds-ai-platform-application-dev.cfuasi8g6rbt.ap-east-1.rds.amazonaws.com:5432/open_webui"
   - name: DATABASE_PORT
     value: "5432"
   - name: DATABASE_TYPE
