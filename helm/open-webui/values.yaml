@@ -72,9 +72,10 @@ ingress:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
   hosts:
     - host: "" # some place holder domain
-      rules:
-      - path: /open-webui
-        pathType: Prefix
+      paths:
+        - path: /open-webui
+          pathType: Prefix
+
 
 # -- Expose the service via gateway-api HTTPRoute
 # Requires Gateway API resources and suitable controller installed within the cluster
