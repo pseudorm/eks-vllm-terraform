@@ -63,32 +63,24 @@ service:
 ingress:
   enabled: true
   className: ""
+  labels: 
+    app: open-webui
   annotations: 
     kubernetes.io/ingress.class: alb,
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+  rules:
+    - path: /open-webui
+      pathType: Prefix
 
 # -- Expose the service via gateway-api HTTPRoute
 # Requires Gateway API resources and suitable controller installed within the cluster
 # (see: https://gateway-api.sigs.k8s.io/guides/)
 httpRoute:
-  # HTTPRoute enabled.
-  enabled: true
-  # HTTPRoute annotations.
-  annotations: {}
-  # Which Gateways this Route is attached to.
-  parentRefs:
-  - name: gateway
-    sectionName: http
-    # namespace: default
-  # Hostnames matching HTTP header.
-  # List of rules and filters applied.
-  rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /open-webui
+  # Use ingress with alb instead
+  enabled: false
+
 
 resources:
   # We usually recommend not to specify default resources and to leave this as a conscious
