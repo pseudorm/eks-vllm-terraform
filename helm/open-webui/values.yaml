@@ -148,7 +148,8 @@ environmentVariables:
     value: "899089Kg!"
 
 nodes:
-  name: open-webui-nodes
+  nodepool_name: open-webui-nodepool
+  nodeclass_name: open-webui-nodeclass
   amiId: ami-045aefcf04d3758f6
   amiFamily: Bottlerocket
   iamRole: karpenter-eks-node-group-20260303082358806200000004
