@@ -158,8 +158,8 @@ nodes:
     node-type: "external"
 
   instanceTypes:
-    - t4.small
-    - t4.medium
+    - t4g.small
+    - t4g.medium
   capacityTypes:
     - spot
     - on-demand
