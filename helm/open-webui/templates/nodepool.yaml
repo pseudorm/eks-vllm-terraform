@@ -19,7 +19,7 @@ spec:
           operator: In
           values: {{- toYaml .Values.nodes.capacityTypes | nindent 12 }} 
       nodeClassRef:
-        name: {{ .Values.nodes.name }}
+        name: {{ .Values.nodes.nodeclass_name }}
         group: karpenter.k8s.aws
         kind: EC2NodeClass
       expireAfter: 720h

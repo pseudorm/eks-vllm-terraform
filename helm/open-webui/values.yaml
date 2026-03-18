@@ -62,11 +62,11 @@ service:
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
   enabled: true
-  className: ""
+  className: "alb" # use alb as the ingress controller
   labels: 
     app: open-webui
   annotations: 
-    kubernetes.io/ingress.class: alb,
+    kubernetes.io/ingress.className: alb,
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
