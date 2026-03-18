@@ -147,7 +147,7 @@ environmentVariables:
 nodes:
   name: open-webui-nodes
   amiId: ami-045aefcf04d3758f6
-  amiFamily: BottleRocket
+  amiFamily: Bottlerocket
   iamRole: arn:aws:iam::169446447120:role/karpenter-node-role
 
   labels:
