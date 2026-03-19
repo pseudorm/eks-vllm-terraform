@@ -211,8 +211,12 @@ compute:
 # vLLM configuration using YAML config file
 vllm:
   config:
-    model: Qwen/Qwen3.5-9B
+    model: cyankiwi/Qwen3.5-9B-AWQ-4bit
     trust_remote_code: true
     dtype: bfloat16
     enable_chunked_prefill: true
-    max_num_batched_tokens: 4096
+    max_model_len: 4096
+    reasoning_parser: "qwen3"
+    language_model_only: true
+    gpu_memory_utilization: 0.95
+    
