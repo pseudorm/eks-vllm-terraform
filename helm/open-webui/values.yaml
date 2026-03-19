@@ -76,10 +76,10 @@ ingress:
     alb.ingress.kubernetes.io/success-codes: "200"
     alb.ingress.kubernetes.io/backend-protocol: HTTP
   hosts:
-    - host: "" # some place holder domain
+    - host: "*"
       paths:
         - path: /
-          pathType: ImplementationSpecific
+          pathType: Prefix
 
 
 # -- Expose the service via gateway-api HTTPRoute
@@ -171,8 +171,6 @@ environmentVariables:
         key: password
   - name: "ENABLE_OLLAMA_API"
     value: "false"
-  - name: WEBUI_URL
-    value: "http://k8s-kubesyst-openwebu-874fe0fee8-303591387.ap-east-1.elb.amazonaws.com"
 
 
 nodes:
