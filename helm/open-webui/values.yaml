@@ -65,11 +65,16 @@ ingress:
   className: "alb" # use alb as the ingress controller
   labels: 
     app: open-webui
-  annotations: 
-    kubernetes.io/ingress.className: alb,
+  annotations:
+    kubernetes.io/ingress.className: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
   hosts:
     - host: "" # some place holder domain
       paths:
@@ -164,6 +169,11 @@ environmentVariables:
       secretKeyRef:
         name: open-webui-db
         key: password
+  - name: "ENABLE_OLLAMA_API"
+    value: "false"
+  - name: WEBUI_URL
+    value: "http://k8s-kubesyst-openwebu-874fe0fee8-303591387.ap-east-1.elb.amazonaws.com"
+
 
 nodes:
   nodepool_name: open-webui-nodepool
