@@ -213,8 +213,9 @@ vllm:
     trust_remote_code: true
     dtype: bfloat16
     enable_chunked_prefill: true
-    max_model_len: 4096
+    max_model_len: 8192
     reasoning_parser: "qwen3"
     language_model_only: true
     gpu_memory_utilization: 0.95
+    defualt-chat-template-kwargs: '{"enable_thinking": false}' #Disable thinking mode to speed up TTFT
     port: 8000
