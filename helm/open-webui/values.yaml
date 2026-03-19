@@ -74,6 +74,7 @@ ingress:
     - host: "" # some place holder domain
       paths:
         - path: /
+          pathType: ImplementationSpecific
 
 
 # -- Expose the service via gateway-api HTTPRoute
