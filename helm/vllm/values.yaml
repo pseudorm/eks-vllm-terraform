@@ -217,5 +217,5 @@ vllm:
     reasoning_parser: "qwen3"
     language_model_only: true
     gpu_memory_utilization: 0.95
-    defualt-chat-template-kwargs: '{"enable_thinking": false}' #Disable thinking mode to speed up TTFT
+    default-chat-template-kwargs: '{"enable_thinking": false}' #Disable thinking mode to speed up TTFT
     port: 8000
