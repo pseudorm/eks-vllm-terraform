@@ -73,8 +73,7 @@ ingress:
   hosts:
     - host: "" # some place holder domain
       paths:
-        - path: /open-webui
-          pathType: Prefix
+        - path: /
 
 
 # -- Expose the service via gateway-api HTTPRoute
