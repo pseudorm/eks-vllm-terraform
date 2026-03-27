@@ -194,6 +194,7 @@ nodes:
   instanceTypes:
     - t4g.small
     - t4g.medium
+    - t4g.large
   capacityTypes:
     - spot
     - on-demand

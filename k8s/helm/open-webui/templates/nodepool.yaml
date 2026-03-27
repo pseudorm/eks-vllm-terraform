@@ -11,6 +11,10 @@ spec:
         {{- toYaml .Values.nodes.labels | nindent 8 }}
       {{- end }}
     spec:
+      taints:
+        - key: workload-type
+          value: cpu-only
+          effect: NoSchedule
       requirements:
         - key: node.kubernetes.io/instance-type
           operator: In
