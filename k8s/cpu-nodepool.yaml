@@ -54,3 +54,9 @@ spec:
         karpenter.sh/discovery: eks-ai-ape1
   tags:
     nvidia.com/gpu: "false"
+
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 100
+        volumeType: gp3
