@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locust-master
+  namespace: load-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: locust
+      role: master
+  template:
+    metadata:
+      labels:
+        app: locust
+        role: master
+    spec:
+      nodeSelector:
+        internal: "true"
+        compute: "cpu"
+        processor: "amd64"
+        workload: "general-purpose"
+      containers:
+        - name: locust
+          image: locustio/locust:2.32.4
+          args:
+            - "--master"
+            - "-f"
+            - "/locust/locustfile.py"
+            - "--host"
+            - "http://aip-litellm.ai-platform.svc.cluster.local:4000"
+          env:
+            - name: LITELLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: locust-secrets
+                  key: litellm-api-key
+          ports:
+            - containerPort: 8089
+              name: web
+            - containerPort: 5557
+              name: master-bind
+          volumeMounts:
+            - name: script
+              mountPath: /locust
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2
+              memory: 2Gi
+      volumes:
+        - name: script
+          configMap:
+            name: locust-script
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: locust-master
+  namespace: load-test
+spec:
+  selector:
+    app: locust
+    role: master
+  ports:
+    - name: web
+      port: 8089
+      targetPort: 8089
+    - name: master-bind
+      port: 5557
+      targetPort: 5557
+  type: ClusterIP

@@ -1,0 +1,12 @@
+{{- if or (.Values.litellm.controlPlane.enabled) (.Values.litellm.dataPlane.enabled) -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-litellm-config
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: litellm
+data:
+  config.yaml: |
+    {{- toYaml .Values.litellm.config | nindent 4 }}
+{{- end }}

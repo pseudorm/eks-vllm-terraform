@@ -1,0 +1,18 @@
+{{- if .Values.vllm.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-vllm
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: vllm
+spec:
+  type: {{ .Values.vllm.service.type }}
+  ports:
+    - port: {{ .Values.vllm.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "ai-platform.vllm.selectorLabels" . | nindent 4 }}
+{{- end }}

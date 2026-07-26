@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-cluster-metrics
+  namespace: ray
+  labels:
+    ray.io/cluster: ml-cluster
+spec:
+  clusterIP: None
+  selector:
+    ray.io/cluster: ml-cluster
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: 8080

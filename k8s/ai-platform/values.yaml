@@ -1,0 +1,172 @@
+# ============================================================
+# AI Platform - Unified Helm Chart Values
+# ============================================================
+
+nameOverride: ""
+fullnameOverride: ""
+
+# ============================================================
+# Shared Ingress (single ALB with subpath routing)
+# ============================================================
+ingress:
+  enabled: true
+  scheme: internal
+  securityGroup: sg-039ef6adfbf11d88a
+  tags: "Environment=dev,Project=eks-ai-ape1,auto-delete=false,auto-stop=no"
+  annotations: {}
+  tls: []
+
+# ============================================================
+# Open-WebUI - Chat Frontend
+# ============================================================
+openWebui:
+  enabled: false
+  replicaCount: 1
+
+  image:
+    repository: 169446447120.dkr.ecr.ap-east-1.amazonaws.com/docker-hub/dyrnq/open-webui
+    tag: v0.3.25
+    pullPolicy: Always
+
+  containerPort: 8080
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 100
+    targetCPUUtilizationPercentage: 80
+
+  resources:
+    limits:
+      cpu: 2
+      memory: 512Mi
+    requests:
+      cpu: 500m
+      memory: 64Mi
+
+  nodeSelector:
+    karpenter.sh/nodepool: cpu-burstable-graviton-ec2
+
+  tolerations: []
+
+  env:
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: open-webui-db
+          key: db_url
+    - name: DATABASE_TYPE
+      value: "postgresql"
+
+# ============================================================
+# vLLM - Model Inference Engine (cluster-internal only)
+# ============================================================
+vllm:
+  enabled: false
+  replicaCount: 1
+
+  image:
+    repository: public.ecr.aws/neuron/pytorch-inference-vllm-neuronx
+    tag: 0.16.0-neuronx-py312-sdk2.29.1-ubuntu24.04
+    pullPolicy: Always
+
+  containerPort: 8000
+  shmSize: 8Gi
+
+  service:
+    type: ClusterIP
+    port: 8000
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+  securityContext:
+    capabilities:
+      add:
+        - SYS_ADMIN
+        - IPC_LOCK
+
+  resources:
+    limits:
+      cpu: 4
+      memory: 24Gi
+      aws.amazon.com/neuron: 1
+    requests:
+      cpu: 4
+      memory: 24Gi
+      aws.amazon.com/neuron: 1
+
+  nodeSelector:
+    internal: "true"
+    compute: inferentia
+    accelerator: inferentia1
+
+  tolerations:
+    - key: aws.amazon.com/neuron
+      operator: Exists
+      effect: NoSchedule
+    - key: ray.io/node-type
+      operator: Equal
+      value: worker
+      effect: NoSchedule
+
+  config: |
+    model: cyankiwi/Qwen3.5-9B-AWQ-4bit
+    dtype: bfloat16
+    max-model-len: 8192
+    gpu-memory-utilization: 0.95
+    enable-chunked-prefill: true
+
+# ============================================================
+# MCP SearXNG - MCP Server for SearXNG
+# ============================================================
+mcpSearxng:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: supercorp/supergateway
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  containerPort: 3000
+  searxngUrl: "" # defaults to http://searxng-http.<namespace>.svc.cluster.local:8080
+
+  service:
+    type: ClusterIP
+    port: 3000
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  nodeSelector:
+    compute: cpu
+    internal: "true"
+    processor: amd64
+    workload: general-purpose
+
+# ============================================================
+# SearXNG - Search Engine (subchart)
+# ============================================================
+searxng:
+  enabled: true
+  env:
+    - name: SEARXNG_BASE_URL
+      value: "http://aip.chester.ai/searxng"
+  nodeSelector:
+    compute: cpu
+    internal: "true"
+    processor: amd64
+    workload: general-purpose

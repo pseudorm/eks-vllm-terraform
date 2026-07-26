@@ -1,0 +1,137 @@
+# ============================================================
+# LiteLLM - LLM Proxy Gateway (Split Architecture)
+# ============================================================
+litellm:
+  image:
+    repository: 169446447120.dkr.ecr.ap-east-1.amazonaws.com/docker-hub/litellm/litellm
+    tag: v1.87.0
+    pullPolicy: Always
+
+  containerPort: 4000
+
+  service:
+    type: ClusterIP
+    port: 4000
+
+  serviceAccount:
+    create: true
+    automount: true
+    annotations: {}
+
+  # Control Plane - Admin UI + Database Management
+  controlPlane:
+    enabled: true
+    replicaCount: 1
+
+    env: []
+
+    autoscaling:
+      enabled: false # Control plane doesn't need autoscaling
+
+    resources:
+      limits:
+        cpu: 500m
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 2Gi
+
+    nodeSelector:
+      compute: cpu
+      internal: "true"
+      processor: amd64
+      workload: general-purpose
+
+    tolerations: []
+
+  # Data Plane - Pure Request Processing
+  dataPlane:
+    enabled: true
+    replicaCount: 1
+
+    env:
+      - name: SEARXNG_API_BASE
+        value: "http://searxng-http.ai-platform.svc.cluster.local:8080"
+
+    rollingUpdate:
+      maxSurge: "25%"
+
+    # KEDA-based autoscaling using Prometheus metrics (requests per second)
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 20
+      pollingInterval: 15 # How often KEDA queries Prometheus (seconds)
+      cooldownPeriod: 300 # Wait before scaling down (seconds)
+      scaleUpStabilization: 0 # HPA scale-up stabilization window (seconds)
+      scaleDownStabilization: 300 # HPA scale-down stabilization window (seconds)
+      requestsPerSecondThreshold: 10 # Target requests/sec per pod
+      prometheusAddress: "http://op-kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090/prometheus"
+
+    resources:
+      limits:
+        cpu: 1
+        memory: 4Gi
+      requests:
+        cpu: 1
+        memory: 4Gi
+
+    nodeSelector:
+      compute: cpu
+      internal: "true"
+      processor: amd64
+      workload: compute-optimized
+
+    tolerations: []
+
+  secrets: {}
+
+  config:
+    set_verbose: true
+    cache: false
+
+    environment_variables:
+      # PHOENIX_PROJECT_NAME: LiteLLM
+      # PHOENIX_API_KEY: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJBcGlLZXk6MiJ9.BlUAnPz2rGVbHPGxwTfjLog5lKdmC5fiUYkSmglK-8c"
+      # PHOENIX_COLLECTOR_ENDPOINT: "http://arize-phoenix.observability.svc.cluster.local:6006"
+
+      # ARIZE_SPACE_ID: "U3BhY2U6NDQ3NDE6ejBnVA=="
+      # ARIZE_API_KEY: "ak-ee5e2582-746f-47f3-96ec-ea6c9dcdc70a-v7phURjaCUraMmkTXWcvXpThAMOKkDVx"
+      # ARIZE_ENDPOINT: "https://otlp.arize.com/v1" # OPTIONAL - your custom arize GRPC api endpoint
+      # ARIZE_HTTP_ENDPOINT: "https://otlp.arize.com/v1" # OPTIONAL - your custom arize HTTP api endpoint. Set either this or ARIZE_ENDPOINT or Neither (defaults to https://otlp.arize.com/v1 on grpc)
+      # ARIZE_PROJECT_NAME: "LiteLLM" # OPTIONAL - sets the arize project name
+      LANGFUSE_SECRET_KEY: "sk-lf-6078ab40-dfa9-4a9b-930b-a7ec2035aba2"
+      LANGFUSE_PUBLIC_KEY: "pk-lf-b6d3ca43-6ee3-4f22-82b3-9e90a8bae168"
+      LANGFUSE_HOST: "http://op-langfuse-web.observability.svc.cluster.local:3000"
+
+    litellm_settings:
+      drop_params: true
+      success_callback: ["langfuse"]
+      failure_callback: ["langfuse"]
+      callbacks:
+        - "prometheus"
+        - "s3_v2"
+        - "websearch_interception"
+      websearch_interception_params:
+        enabled_providers: ["openai", "bedrock", "azure", "vertex_ai"]
+        search_tool_name: searxng-search
+      prometheus_initialize_budget_metrics: true
+      s3_callback_params:
+        s3_bucket_name: ai-platform-logs-169446447120-ap-east-1-an # AWS Bucket Name for S3
+        s3_region_name: ap-east-1 # AWS Region Name for S3
+      require_auth_for_metrics_endpoint: false
+      route_all_chat_openai_to_responses: true
+
+    general_settings:
+      allow_requests_on_db_unavailable: true
+      database_url: os.environ/DATABASE_URL
+      store_model_in_db: true
+      store_prompts_in_spend_logs: false
+      public_routes:
+        - "LiteLLMRoutes.public_routes"
+        - "/health/*"
+    search_tools:
+      - search_tool_name: searxng-search
+        litellm_params:
+          search_provider: searxng
+          api_base: http://searxng-http.ai-platform.svc.cluster.local:8080

@@ -1,0 +1,98 @@
+{{- if .Values.litellm.dataPlane.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-litellm-data
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: litellm-data
+spec:
+  {{- if not .Values.litellm.dataPlane.autoscaling.enabled }}
+  replicas: {{ .Values.litellm.dataPlane.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ai-platform.litellm-data.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.litellm.dataPlane.rollingUpdate.maxSurge }}
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        {{- include "ai-platform.litellm-data.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "ai-platform.fullname" . }}-litellm
+      containers:
+        - name: litellm-data
+          image: "{{ .Values.litellm.image.repository }}:{{ .Values.litellm.image.tag }}"
+          imagePullPolicy: {{ .Values.litellm.image.pullPolicy }}
+          args:
+            - "--config"
+            - "/etc/litellm/config.yaml"
+            - "--num_workers"
+            - "1"
+            # NO --ui flag - pure proxy mode
+          ports:
+            - name: http
+              containerPort: {{ .Values.litellm.containerPort }}
+              protocol: TCP
+          env:
+            - name: SERVER_ROOT_PATH
+              value: "/litellm"
+            - name: DISABLE_ADMIN_UI
+              value: "true"
+            {{- with .Values.litellm.dataPlane.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ include "ai-platform.fullname" . }}-litellm-secrets
+          startupProbe:
+            httpGet:
+              path: /health/readiness
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health/liveliness
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.litellm.dataPlane.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/litellm
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "ai-platform.fullname" . }}-litellm-config
+      {{- with .Values.litellm.dataPlane.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.litellm.dataPlane.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              {{- include "ai-platform.litellm-data.selectorLabels" . | nindent 14 }}
+{{- end }}

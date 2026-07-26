@@ -1,0 +1,16 @@
+apiVersion: v2
+name: ai-platform
+description: Unified AI Platform - LiteLLM, Open-WebUI, vLLM, SearXNG, MCP SearXNG
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: searxng
+    version: 1.1.1
+    repository: "https://charts.kubito.dev"
+    condition: searxng.enabled
+  - name: bifrost
+    version: 2.1.25
+    repository: "https://maximhq.github.io/bifrost/helm-charts"
+    condition: bifrost.enabled

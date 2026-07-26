@@ -1,0 +1,9 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ml-cluster-headgroup-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      ray.io/identifier: ml-cluster-head

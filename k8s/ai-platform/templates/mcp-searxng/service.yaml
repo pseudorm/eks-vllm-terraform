@@ -1,0 +1,18 @@
+{{- if .Values.mcpSearxng.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-mcp-searxng
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp-searxng
+spec:
+  type: {{ .Values.mcpSearxng.service.type }}
+  ports:
+    - port: {{ .Values.mcpSearxng.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "ai-platform.mcpSearxng.selectorLabels" . | nindent 4 }}
+{{- end }}

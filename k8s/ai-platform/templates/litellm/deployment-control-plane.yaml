@@ -1,0 +1,88 @@
+{{- if .Values.litellm.controlPlane.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-litellm-control
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: litellm-control
+spec:
+  {{- if not .Values.litellm.controlPlane.autoscaling.enabled }}
+  replicas: {{ .Values.litellm.controlPlane.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ai-platform.litellm-control.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        {{- include "ai-platform.litellm-control.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "ai-platform.fullname" . }}-litellm
+      containers:
+        - name: litellm-control
+          image: "{{ .Values.litellm.image.repository }}:{{ .Values.litellm.image.tag }}"
+          imagePullPolicy: {{ .Values.litellm.image.pullPolicy }}
+          args:
+            - "--config"
+            - "/etc/litellm/config.yaml"
+            - "--num_workers"
+            - "1"
+          ports:
+            - name: http
+              containerPort: {{ .Values.litellm.containerPort }}
+              protocol: TCP
+          env:
+            - name: SERVER_ROOT_PATH
+              value: "/litellm-control"
+            {{- with .Values.litellm.controlPlane.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ include "ai-platform.fullname" . }}-litellm-secrets
+          startupProbe:
+            httpGet:
+              path: /health/readiness
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health/liveliness
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.litellm.controlPlane.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/litellm
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "ai-platform.fullname" . }}-litellm-config
+      {{- with .Values.litellm.controlPlane.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.litellm.controlPlane.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

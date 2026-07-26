@@ -1,0 +1,18 @@
+apiVersion: v2
+name: observability-stack
+description: Prometheus, Grafana, Loki observability stack for EKS
+version: 1.0.0
+
+dependencies:
+  - name: kube-prometheus-stack
+    version: "85.0.2"
+    repository: https://prometheus-community.github.io/helm-charts
+  - name: loki
+    version: "6.30.1"
+    repository: https://grafana.github.io/helm-charts
+  # - name: alloy
+  #   version: "0.12.0"
+  #   repository: https://grafana.github.io/helm-charts
+  - name: langfuse
+    version: "1.5.30"
+    repository: https://langfuse.github.io/langfuse-k8s

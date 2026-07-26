@@ -1,0 +1,89 @@
+{{/*
+Expand the name of the chart.
+*/}}
+{{- define "ai-platform.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Create a default fully qualified app name.
+Uses release name directly so services are named <release>-<component>.
+*/}}
+{{- define "ai-platform.fullname" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create chart name and version as used by the chart label.
+*/}}
+{{- define "ai-platform.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Common labels
+*/}}
+{{- define "ai-platform.labels" -}}
+helm.sh/chart: {{ include "ai-platform.chart" . }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+Component-specific labels
+*/}}
+{{- define "ai-platform.componentLabels" -}}
+{{ include "ai-platform.labels" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+LiteLLM Control Plane selector labels
+*/}}
+{{- define "ai-platform.litellm-control.selectorLabels" -}}
+app.kubernetes.io/name: litellm-control
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+LiteLLM Data Plane selector labels
+*/}}
+{{- define "ai-platform.litellm-data.selectorLabels" -}}
+app.kubernetes.io/name: litellm-data
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+LiteLLM selector labels (legacy - kept for backwards compatibility)
+*/}}
+{{- define "ai-platform.litellm.selectorLabels" -}}
+app.kubernetes.io/name: litellm
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Open-WebUI selector labels
+*/}}
+{{- define "ai-platform.openWebui.selectorLabels" -}}
+app.kubernetes.io/name: open-webui
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+vLLM selector labels
+*/}}
+{{- define "ai-platform.vllm.selectorLabels" -}}
+app.kubernetes.io/name: vllm
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+MCP SearXNG selector labels
+*/}}
+{{- define "ai-platform.mcpSearxng.selectorLabels" -}}
+app.kubernetes.io/name: mcp-searxng
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

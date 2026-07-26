@@ -1,0 +1,17 @@
+{{- if .Values.mcpSearxng.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-mcp-searxng-config
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp-searxng
+data:
+  config.json: |
+    {
+      "searxng_base_url": {{ .Values.mcpSearxng.searxngBaseUrl | default "http://searxng-http.{{ .Release.Namespace }}.svc.cluster.local" | quote }},
+      "port": {{ .Values.mcpSearxng.containerPort }},
+      "host": "0.0.0.0",
+      "timeout": {{ .Values.mcpSearxng.timeout | default 30000 }}
+    }
+{{- end }}

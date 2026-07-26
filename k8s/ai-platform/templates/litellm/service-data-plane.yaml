@@ -1,0 +1,20 @@
+{{- if .Values.litellm.dataPlane.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-litellm-data
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: litellm-data
+  annotations:
+    alb.ingress.kubernetes.io/healthcheck-path: /health/readiness
+spec:
+  type: {{ .Values.litellm.service.type }}
+  ports:
+    - port: {{ .Values.litellm.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "ai-platform.litellm-data.selectorLabels" . | nindent 4 }}
+{{- end }}

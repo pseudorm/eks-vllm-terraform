@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ray-grafana-dashboards
+  namespace: observability
+  labels:
+    grafana_dashboard: "1" # matches your sidecar label
+data:
+  ray-default.json: |
+    <contents of default dashboard JSON>
+  ray-serve.json: |
+    <contents of serve dashboard JSON>

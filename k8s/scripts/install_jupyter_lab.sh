@@ -1,0 +1,11 @@
+helm install jupyterlab-gpu dsri/jupyterlab \
+  --set serviceAccount.name=anyuid \
+  --set service.openshiftRoute.enabled=true \
+  --set image.repository=ghcr.io/maastrichtu-ids/jupyterlab \
+  --set image.tag=tensorflow \
+  --set image.pullPolicy=Always \
+  --set storage.mountPath=/workspace/persistent \
+  --set storage.workingDir=/workspace \
+  --set resources.requests."nvidia\.com/gpu"=1 \
+  --set resources.limits."nvidia\.com/gpu"=1 \
+  --set password=changeme

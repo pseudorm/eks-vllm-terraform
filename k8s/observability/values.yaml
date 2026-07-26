@@ -1,0 +1,332 @@
+ingress:
+  enabled: true
+  className: "alb"
+  labels:
+    app: log-and-monitoring
+  annotations:
+    kubernetes.io/ingress.className: alb
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /health/readiness
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/security-groups: sg-039ef6adfbf11d88a # Specify your security group ID(s)
+    alb.ingress.kubernetes.io/tags: Environment=dev,Project=eks-ai-ape1,auto-delete=false,auto-stop=no
+  hosts:
+    - paths:
+        - path: /grafana
+          pathType: Prefix
+          backend:
+            service:
+              name: grafana
+              port:
+                number: 80
+        - path: /prometheus
+          pathType: Prefix
+          backend:
+            service:
+              name: kube-prometheus-stack-prometheus
+              port:
+                number: 9090
+        - path: /langfuse
+          pathType: Prefix
+          backend:
+            service:
+              name: langfuse-web
+              port:
+                number: 3000
+
+# =============================================================================
+# Kube-Prometheus-Stack (Prometheus + Grafana + Alertmanager)
+# =============================================================================
+kube-prometheus-stack:
+  namespaceOverride: observability
+
+  # -- Prometheus
+  prometheus:
+    serviceAccount:
+      create: false
+      name: observability-logging-sa
+    prometheusSpec:
+      retention: 24h
+      walCompression: true
+      # No PV - use emptyDir for WAL, ship to S3 via Thanos later if needed
+      storageSpec: {}
+      nodeSelector:
+        internal: "true"
+        compute: "cpu"
+        processor: "amd64"
+        workload: "general-purpose"
+      # Scrape ServiceMonitors from all namespaces
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+      # Enable OTLP receiver for Claude Code telemetry
+      routePrefix: /prometheus
+      externalUrl: https://op.chester.ai/prometheus
+      additionalArgs:
+        - name: web.enable-otlp-receiver
+        - name: enable-feature
+          value: otlp-deltatocumulative
+      additionalScrapeConfigs:
+        - job_name: litellm-metrics
+          scrape_interval: 15s
+          metrics_path: /metrics
+          kubernetes_sd_configs:
+            - role: pod
+              namespaces:
+                names:
+                  - ai-platform
+          relabel_configs:
+            # Only keep litellm pods (both control and data plane)
+            - source_labels:
+                [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+              action: keep
+              regex: litellm-(control|data)
+            # Only scrape the container port 4000
+            - source_labels: [__meta_kubernetes_pod_container_port_number]
+              action: keep
+              regex: "4000"
+            # Expose pod name as a label
+            - source_labels: [__meta_kubernetes_pod_name]
+              target_label: pod
+            - source_labels: [__meta_kubernetes_namespace]
+              target_label: namespace
+            # Expose the plane type (control/data) as a label
+            - source_labels:
+                [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+              target_label: plane
+              regex: litellm-(control|data)
+              replacement: $1
+
+  # -- Grafana
+  grafana:
+    grafana.ini:
+      server:
+        root_url: "%(protocol)s://%(domain)s/grafana"
+        serve_from_sub_path: true
+    adminPassword: "admin" # TODO: use a sealed secret or external secret
+    nodeSelector:
+      internal: "true"
+      compute: "cpu"
+      processor: "amd64"
+      workload: "general-purpose"
+    persistence:
+      enabled: false
+    sidecar:
+      datasources:
+        enabled: true
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        searchNamespace: ALL
+    additionalDataSources:
+      - name: Loki
+        type: loki
+        url: http://loki-gateway.observability.svc.cluster.local:80
+        access: proxy
+        isDefault: false
+
+  # -- Alertmanager
+  alertmanager:
+    alertmanagerSpec:
+      storage: {}
+      nodeSelector:
+        compute: "cpu"
+
+  # -- Node exporter (DaemonSet - runs on all nodes)
+  nodeExporter:
+    enabled: true
+
+  # -- Kube-state-metrics
+  kubeStateMetrics:
+    enabled: true
+
+# =============================================================================
+# Loki (Log Aggregation)
+# =============================================================================
+loki:
+  deploymentMode: SingleBinary # start simple, move to SimpleScalable when needed
+  loki:
+    auth_enabled: false
+    schemaConfig:
+      configs:
+        - from: "2024-01-01"
+          store: tsdb
+          object_store: s3
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+    storage:
+      type: s3
+      bucketNames:
+        chunks: eks-ai-ape1-loki-logs-169446447120-ap-east-1-an
+        ruler: eks-ai-ape1-loki-logs-169446447120-ap-east-1-an
+        admin: eks-ai-ape1-loki-logs-169446447120-ap-east-1-an
+      s3:
+        region: ap-east-1
+    commonConfig:
+      replication_factor: 1
+  singleBinary:
+    replicas: 1
+    nodeSelector:
+      compute: "cpu"
+    persistence:
+      enabled: false
+  serviceAccount:
+    create: false
+    name: observability-logging-sa
+  # Disable components not needed in SingleBinary mode
+  read:
+    replicas: 0
+  write:
+    replicas: 0
+  backend:
+    replicas: 0
+  gateway:
+    enabled: true
+    nodeSelector:
+      internal: "true"
+      compute: "cpu"
+      processor: "amd64"
+      workload: "general-purpose"
+
+# =============================================================================
+# Promtail (Log Shipper - DaemonSet)
+# =============================================================================
+promtail:
+  config:
+    clients:
+      - url: http://loki-gateway.observability.svc.cluster.local:80/loki/api/v1/push
+
+# =============================================================================
+# Langfuse (LLM Observability)
+# =============================================================================
+langfuse:
+  global:
+    defaultStorageClass: "ebs-gp3"
+  secrets:
+    name: langfuse-general
+    type: Opaque
+    stringData:
+      encryption-key: "b644cdb68150892817bb95211999bb3fe53e8b432b9423539490a01a21c52cf5"
+      salt: "MTIzNDU2Nzg5MA=="
+      nextauth-secret: "MTIzNDU2Nzg5MA=="
+
+  langfuse:
+    serviceAccount:
+      create: false
+      name: observability-logging-sa
+    encryptionKey:
+      secretKeyRef:
+        name: langfuse-general
+        key: encryption-key
+    salt:
+      secretKeyRef:
+        name: langfuse-general
+        key: salt
+    nextauth:
+      url: "http://op.chester.ai/langfuse/api/auth"
+      secret:
+        secretKeyRef:
+          name: langfuse-general
+          key: nextauth-secret
+    nodeSelector:
+      internal: "true"
+      compute: "cpu"
+      processor: "amd64"
+      workload: "general-purpose"
+    additionalEnv:
+      - name: "NEXT_PUBLIC_BASE_PATH"
+        value: "/langfuse"
+      - name: "LANGFUSE_INIT_USER_EMAIL"
+        value: "phcheng@amazon.com"
+      - name: "LANGFUSE_INIT_USER_PASSWORD"
+        value: "899089Kg!"
+
+  postgresql:
+    host: "rds-ai-platform-application-dev.cfuasi8g6rbt.ap-east-1.rds.amazonaws.com"
+    port: 5432
+    args:
+      ssl_require: true
+    auth:
+      username: "postgres"
+      password: "899089Kg"
+    deploy: false
+
+  redis:
+    # -- Enable valkey deployment (via Bitnami Helm Chart). If you want to use a Redis or Valkey server already deployed, set to false.
+    deploy: true
+    host: "op-redis-primary"
+    auth:
+      username: ""
+      password: "899089Kg!"
+    primary:
+      resources:
+        limits:
+          cpu: "1"
+          memory: "1.5Gi"
+        requests:
+          cpu: "1"
+          memory: "1.5Gi"
+
+  s3:
+    deploy: false
+    bucket: "ai-platform-logs-169446447120-ap-east-1-an"
+    region: "ap-east-1"
+
+  clickhouse:
+    host: "op-clickhouse"
+    replicaCount: 1
+    nodeSelector:
+      topology.kubernetes.io/zone: ap-east-1c
+    zookeeper:
+      replicaCount: 1
+      nodeSelector:
+        topology.kubernetes.io/zone: ap-east-1c
+    serviceAccount:
+      create: false
+      name: observability-logging-sa
+    auth:
+      username: "phcheng"
+      password: "899089Kg!"
+      extraConfigmaps:
+        - name: storage-config
+          mountPath: /etc/clickhouse-server/config.d/storage_config.xml
+          data:
+            storage.xml: |
+              <clickhouse>
+                  <merge_tree>
+                      <storage_policy>s3</storage_policy>
+                  </merge_tree>
+                  <storage_configuration>
+                      <disks>
+                          <s3>
+                              <type>s3</type>
+                              <endpoint>eks-ai-ape1-observability-clickhouse-data</endpoint>
+                              <object_storage_type>s3</object_storage_type>
+                              <metadata_path>/var/lib/clickhouse/disks/s3/</metadata_path>
+                              <use_environment_credentials>1</use_environment_credentials>
+                          </s3>
+                          <s3_cache>
+                            <type>cache</type>
+                            <disk>s3_disk</disk>
+                            <path>/var/lib/clickhouse/disks/s3_cache/</path>
+                            <max_size>10Gi</max_size>
+                          </s3_cache>
+                      </disks>
+                      <policies>
+                        <s3_main>
+                          <volumes>
+                            <main>
+                              <disk>s3</disk>
+                            </main>
+                          </volumes>
+                        </s3_main>
+                      </policies>
+                  </storage_configuration>
+              </clickhouse>

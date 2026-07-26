@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ray-cluster-monitor
+  namespace: ray
+spec:
+  namespaceSelector:
+    matchNames:
+      - ray
+  selector:
+    matchLabels:
+      ray.io/cluster: ml-cluster
+  endpoints:
+    - port: metrics
+      interval: 15s
+      path: /metrics

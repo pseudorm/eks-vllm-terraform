@@ -1,0 +1,40 @@
+{{- if and (.Values.litellm.dataPlane.enabled) (.Values.litellm.dataPlane.autoscaling.enabled) }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-litellm-data-scaler
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: litellm-data
+spec:
+  scaleTargetRef:
+    name: {{ include "ai-platform.fullname" . }}-litellm-data
+  minReplicaCount: {{ .Values.litellm.dataPlane.autoscaling.minReplicas }}
+  maxReplicaCount: {{ .Values.litellm.dataPlane.autoscaling.maxReplicas }}
+  pollingInterval: {{ .Values.litellm.dataPlane.autoscaling.pollingInterval }}
+  cooldownPeriod: {{ .Values.litellm.dataPlane.autoscaling.cooldownPeriod }}
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: {{ .Values.litellm.dataPlane.autoscaling.scaleUpStabilization }}
+          policies:
+            - type: Percent
+              value: 100
+              periodSeconds: 15
+        scaleDown:
+          stabilizationWindowSeconds: {{ .Values.litellm.dataPlane.autoscaling.scaleDownStabilization }}
+          policies:
+            - type: Percent
+              value: 10
+              periodSeconds: 60
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: {{ .Values.litellm.dataPlane.autoscaling.prometheusAddress }}
+        query: |
+          sum(rate(litellm_requests_metric{job="litellm-data"}[1m]))
+          /
+          count(kube_pod_status_phase{namespace="{{ .Release.Namespace }}", phase="Running", pod=~"{{ include "ai-platform.fullname" . }}-litellm-data-.*"})
+        threshold: "{{ .Values.litellm.dataPlane.autoscaling.requestsPerSecondThreshold }}"
+{{- end }}

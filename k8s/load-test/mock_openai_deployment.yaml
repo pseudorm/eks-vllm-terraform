@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-openai-endpoint
+  namespace: load-test
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: mock-openai-endpoint
+  template:
+    metadata:
+      labels:
+        app: mock-openai-endpoint
+    spec:
+      nodeSelector:
+        internal: "true"
+        compute: "cpu"
+        processor: "amd64"
+        workload: "general-purpose"
+      containers:
+        - name: mock-openai-endpoint
+          image: 169446447120.dkr.ecr.ap-east-1.amazonaws.com/mock_openai_endpoint:latest
+          ports:
+            - containerPort: 8090
+              name: api
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2
+              memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-openai-endpoint
+  namespace: load-test
+spec:
+  selector:
+    app: mock-openai-endpoint
+  ports:
+    - name: api
+      port: 8090
+      targetPort: 8090
+  type: ClusterIP

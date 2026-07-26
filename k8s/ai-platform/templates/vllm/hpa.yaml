@@ -1,0 +1,23 @@
+{{- if and .Values.vllm.enabled .Values.vllm.autoscaling.enabled -}}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-vllm
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: vllm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "ai-platform.fullname" . }}-vllm
+  minReplicas: {{ .Values.vllm.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.vllm.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.vllm.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}

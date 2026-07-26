@@ -1,0 +1,30 @@
+# ============================================================
+# Bifrost - Another AI Gateway
+# ============================================================
+
+bifrost:
+  enabled: false
+  nodeSelector:
+    compute: cpu
+    internal: "true"
+    processor: amd64
+    workload: compute-optimized
+  image:
+    tag: v1.6.0-ubi9
+  storage:
+    mode: postgres
+    persistence:
+      enabled: false
+    logsStore:
+      enabled: false
+    objectStorage:
+      enabled: false
+      type: s3
+      bucket: ai-platform-logs-169446447120-ap-east-1-an
+      prefix: bifrost
+      region: ap-east-1
+  postgresql:
+    enabled: false
+    external:
+      enabled: true
+      host: asdfasdf

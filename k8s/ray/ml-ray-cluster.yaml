@@ -1,0 +1,76 @@
+apiVersion: ray.io/v1
+kind: RayCluster
+metadata:
+  name: ml-cluster
+spec:
+  enableInTreeAutoscaling: true
+  headGroupSpec:
+    rayStartParams:
+      dashboard-host: "0.0.0.0"
+    template:
+      spec:
+        nodeSelector:
+          internal: "true"
+          compute: "cpu"
+          processor: "amd64"
+          workload: "general-purpose"
+        containers:
+          - name: ray-head
+            image: 169446447120.dkr.ecr.ap-east-1.amazonaws.com/docker-hub/rayproject/ray:2.55.1-py312-cu129
+            resources:
+              requests: { cpu: "2", memory: "8Gi" }
+  workerGroupSpecs:
+    - groupName: hpc-cpu-workers
+      replicas: 0
+      minReplicas: 0
+      maxReplicas: 10
+      rayStartParams: {}
+      template:
+        spec:
+          nodeSelector:
+            internal: "true"
+            compute: "cpu"
+            processor: "amd64"
+            workload: "hpc"
+          tolerations:
+            - key: ray.io/node-type
+              operator: Equal
+              value: "worker"
+              effect: NoSchedule
+          containers:
+            - name: ray-worker
+              image: 169446447120.dkr.ecr.ap-east-1.amazonaws.com/docker-hub/rayproject/ray:2.55.1-py312-cu129
+              resources:
+                requests: { cpu: "4", memory: "16Gi" }
+
+    - groupName: gpu-workers
+      replicas: 0
+      minReplicas: 0
+      maxReplicas: 4
+      rayStartParams:
+        num-gpus: "1"
+      template:
+        spec:
+          nodeSelector:
+            internal: "true"
+            compute: "gpu"
+            accelerator: a10g
+          tolerations:
+            - key: nvidia.com/gpu
+              operator: Equal
+              value: "true"
+              effect: NoSchedule
+            - key: ray.io/node-type
+              operator: Equal
+              value: "worker"
+              effect: NoSchedule
+          containers:
+            - name: ray-worker
+              image: 169446447120.dkr.ecr.ap-east-1.amazonaws.com/docker-hub/rayproject/ray:2.55.1-py312-cu129
+              resources:
+                requests:
+                  cpu: "4"
+                  memory: "16Gi"
+                  nvidia.com/gpu: "1"
+                limits:
+                  nvidia.com/gpu: "1"

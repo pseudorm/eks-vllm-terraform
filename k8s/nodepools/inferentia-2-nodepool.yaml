@@ -1,0 +1,77 @@
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: "inferentia-2-ec2"
+spec:
+  template:
+    metadata:
+      labels:
+        internal: "true"
+        compute: "inferentia"
+        accelerator: "inferentia2"
+    spec:
+      requirements:
+        - key: "karpenter.k8s.aws/instance-family"
+          operator: In
+          values:
+            - "inf2"
+        - key: "karpenter.sh/capacity-type"
+          operator: In
+          values:
+            - "spot"
+            - "on-demand"
+      taints:
+        - key: aws.amazon.com/neuron
+          value: "true"
+          effect: NoSchedule
+        # prevent Ray head from being scheduled on GPU nodes
+        - key: ray.io/node-type
+          value: "worker"
+          effect: NoSchedule
+      nodeClassRef:
+        name: "inferentia-2-ec2"
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+      expireAfter: 720h
+  limits:
+    cpu: "80"
+    memory: "320Gi"
+    aws.amazon.com/neuron: "10"
+  disruption:
+    consolidationPolicy: WhenEmpty
+    consolidateAfter: "15m"
+
+---
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: "inferentia-2-ec2"
+spec:
+  amiFamily: Bottlerocket
+  amiSelectorTerms:
+    - id: ami-00a1b171294f24d1f
+  role: "karpenter-eks-node-group-20260303082358806200000004"
+  # bottlerocket required user-data configurations
+  userData: |
+    [settings]
+    [settings.kubernetes]
+    device-ownership-from-security-context = true
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: eks-ai-ape1
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: eks-ai-ape1
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: "30Gi"
+        volumeType: gp3
+        deleteOnTermination: true
+    - deviceName: /dev/xvdb
+      ebs:
+        volumeSize: "100Gi"
+        volumeType: gp3
+        deleteOnTermination: true
+  tags:
+    aws.amazon.com/neuron: "1"

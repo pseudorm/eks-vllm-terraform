@@ -1,0 +1,82 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-ingress
+  labels:
+    {{- include "ai-platform.labels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: {{ .Values.ingress.scheme }}
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/security-groups: {{ .Values.ingress.securityGroup }}
+    alb.ingress.kubernetes.io/tags: {{ .Values.ingress.tags }}
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=least_outstanding_requests
+
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: alb
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    - http:
+        paths:
+          {{- if .Values.litellm.controlPlane.enabled }}
+          - path: /litellm-control
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-litellm-control
+                port:
+                  number: {{ .Values.litellm.service.port }}
+          {{- end }}
+          {{- if .Values.litellm.dataPlane.enabled }}
+          - path: /litellm
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-litellm-data
+                port:
+                  number: {{ .Values.litellm.service.port }}
+          {{- end }}
+          {{- if .Values.openWebui.enabled }}
+          - path: /open-webui
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-open-webui
+                port:
+                  number: {{ .Values.openWebui.service.port }}
+          {{- end }}
+          {{- if .Values.searxng.enabled }}
+          - path: /searxng
+            pathType: Prefix
+            backend:
+              service:
+                name: searxng-http
+                port:
+                  number: 8080
+          {{- end }}
+          {{- if .Values.mcpSearxng.enabled }}
+          - path: /mcp-searxng
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-mcp-searxng
+                port:
+                  number: {{ .Values.mcpSearxng.service.port }}
+          {{- end }}
+{{- end }}

@@ -1,0 +1,78 @@
+{{- if .Values.vllm.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-vllm
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: vllm
+spec:
+  {{- if not .Values.vllm.autoscaling.enabled }}
+  replicas: {{ .Values.vllm.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ai-platform.vllm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ai-platform.vllm.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: vllm
+          image: "{{ .Values.vllm.image.repository }}:{{ .Values.vllm.image.tag }}"
+          imagePullPolicy: {{ .Values.vllm.image.pullPolicy }}
+          command: ["/bin/bash", "-c"]
+          args:
+            - "vllm serve --config /etc/vllm/config.yaml"
+          ports:
+            - name: http
+              containerPort: {{ .Values.vllm.containerPort }}
+              protocol: TCP
+          {{- if .Values.vllm.securityContext }}
+          securityContext:
+            {{- toYaml .Values.vllm.securityContext | nindent 12 }}
+          {{- end }}
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.vllm.resources | nindent 12 }}
+          volumeMounts:
+            - name: shm
+              mountPath: /dev/shm
+            - name: config
+              mountPath: /etc/vllm
+      volumes:
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: {{ .Values.vllm.shmSize | default "8Gi" }}
+        - name: config
+          configMap:
+            name: {{ include "ai-platform.fullname" . }}-vllm-config
+      {{- with .Values.vllm.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.vllm.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

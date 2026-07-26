@@ -1,0 +1,12 @@
+{{- if .Values.vllm.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-vllm-config
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: vllm
+data:
+  config.yaml: |
+    {{- .Values.vllm.config | nindent 4 }}
+{{- end }}

@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locust-worker
+  namespace: load-test
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: locust
+      role: worker
+  template:
+    metadata:
+      labels:
+        app: locust
+        role: worker
+    spec:
+      nodeSelector:
+        internal: "true"
+        compute: "cpu"
+        processor: "amd64"
+        workload: "general-purpose"
+      containers:
+        - name: locust
+          image: locustio/locust:2.32.4
+          args:
+            - "--worker"
+            - "-f"
+            - "/locust/locustfile.py"
+            - "--master-host"
+            - "locust-master.load-test.svc.cluster.local"
+          env:
+            - name: LITELLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: locust-secrets
+                  key: litellm-api-key
+          volumeMounts:
+            - name: script
+              mountPath: /locust
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2
+              memory: 2Gi
+      volumes:
+        - name: script
+          configMap:
+            name: locust-script

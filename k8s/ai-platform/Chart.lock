@@ -1,0 +1,9 @@
+dependencies:
+- name: searxng
+  repository: https://charts.kubito.dev
+  version: 1.1.1
+- name: bifrost
+  repository: https://maximhq.github.io/bifrost/helm-charts
+  version: 2.1.25
+digest: sha256:52e76a72507e48f38c97af41e810120110b2c8409ab0651e96786476917aac98
+generated: "2026-06-26T11:49:49.351458+08:00"
