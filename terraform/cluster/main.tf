@@ -1,6 +1,14 @@
 
 locals {
   name = "eks-ai-ape1"
+
+  observability_namespace       = "observability"
+  observability_logging_sa      = "observability-logging-sa"
+  observability_logs_bucket_arn = "arn:aws:s3:::ai-platform-logs-169446447120-ap-east-1-an"
+
+  ai_platform_namespace       = "ai-platform"
+  aip_litellm_sa              = "aip-litellm"
+  aip_litellm_logs_bucket_arn = "arn:aws:s3:::ai-platform-logs-169446447120-ap-east-1-an"
 }
 
 module "aws_eks_ai" {
@@ -10,6 +18,7 @@ module "aws_eks_ai" {
   name               = local.name
   kubernetes_version = "1.33"
   tags               = var.tags
+  enable_irsa        = false
 
   endpoint_public_access                   = false
   enable_cluster_creator_admin_permissions = true
@@ -39,11 +48,14 @@ module "aws_eks_ai" {
     vpc-cni = {
       most_recent    = true
       before_compute = true
+    },
+    aws-ebs-csi-driver = {
+      most_recent = true
     }
   }
 
 
-  # Karpenter controller 
+  # Karpenter controller
   eks_managed_node_groups = {
     karpenter = {
       ami_type               = "BOTTLEROCKET_ARM_64"
@@ -53,7 +65,7 @@ module "aws_eks_ai" {
       instance_types         = ["t4g.medium"]
       subnet_ids             = var.node_subnet_ids
 
-      min_size     = 2
+      min_size     = 1
       max_size     = 10
       desired_size = 2
 
@@ -86,4 +98,118 @@ module "karpenter" {
   create_access_entry = false
 
   tags = var.tags
+}
+
+module "aws_eks_ai_observability_pod_identity" {
+  source = "terraform-aws-modules/eks-pod-identity/aws"
+
+  name                 = "ai-platform-observability-role"
+  create               = true
+  attach_custom_policy = true
+
+
+  policy_statements = [
+    {
+      sid = "S3ReadOnly"
+      actions = [
+        "s3:ListAccessPointsForObjectLambda",
+        "s3:GetAccessPoint",
+        "s3:PutAccountPublicAccessBlock",
+        "s3:ListAccessPoints",
+        "s3:CreateStorageLensGroup",
+        "s3:ListJobs",
+        "s3:PutStorageLensConfiguration",
+        "s3:ListMultiRegionAccessPoints",
+        "s3:ListStorageLensGroups",
+        "s3:ListStorageLensConfigurations",
+        "s3:GetAccountPublicAccessBlock",
+        "s3:ListAllMyBuckets",
+        "s3:ListAccessGrantsInstances",
+        "s3:PutAccessPointPublicAccessBlock",
+        "s3:CreateJob"
+      ]
+      resources = ["*"]
+    },
+    {
+      sid     = "S3AllOnBucket"
+      actions = ["s3:*"]
+      resources = [
+        local.observability_logs_bucket_arn,
+        "${local.observability_logs_bucket_arn}/*"
+      ]
+    }
+  ]
+
+  associations = {
+    this = {
+      cluster_name    = local.name
+      namespace       = local.observability_namespace
+      service_account = local.observability_logging_sa
+    }
+  }
+}
+
+
+module "aws_eks_ai_litellm_pod_identity" {
+  source = "terraform-aws-modules/eks-pod-identity/aws"
+
+  name                 = "eks-ai-ape1-aip-litellm-role"
+  create               = true
+  attach_custom_policy = true
+
+
+  policy_statements = [
+    {
+      sid = "S3ReadOnly"
+      actions = [
+        "s3:ListAccessPointsForObjectLambda",
+        "s3:GetAccessPoint",
+        "s3:PutAccountPublicAccessBlock",
+        "s3:ListAccessPoints",
+        "s3:CreateStorageLensGroup",
+        "s3:ListJobs",
+        "s3:PutStorageLensConfiguration",
+        "s3:ListMultiRegionAccessPoints",
+        "s3:ListStorageLensGroups",
+        "s3:ListStorageLensConfigurations",
+        "s3:GetAccountPublicAccessBlock",
+        "s3:ListAllMyBuckets",
+        "s3:ListAccessGrantsInstances",
+        "s3:PutAccessPointPublicAccessBlock",
+        "s3:CreateJob"
+      ]
+      resources = ["*"]
+    },
+    {
+      sid     = "S3AllOnBucket"
+      actions = ["s3:*"]
+      resources = [
+        local.observability_logs_bucket_arn,
+        "${local.observability_logs_bucket_arn}/*"
+      ]
+    }
+  ]
+
+  associations = {
+    this = {
+      cluster_name    = local.name
+      namespace       = local.ai_platform_namespace
+      service_account = local.aip_litellm_sa
+    }
+  }
+}
+
+module "aws_ebs_csi_pod_identity" {
+  source = "terraform-aws-modules/eks-pod-identity/aws"
+
+  name                      = "${local.name}-ebs-csi"
+  attach_aws_ebs_csi_policy = true
+
+  associations = {
+    this = {
+      cluster_name    = local.name
+      namespace       = "kube-system"
+      service_account = "ebs-csi-controller-sa"
+    }
+  }
 }

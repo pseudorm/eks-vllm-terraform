@@ -13,6 +13,8 @@ resource "aws_db_instance" "transaction_db" {
   storage_encrypted          = var.encrypt_storage
   tags                       = var.tags
   apply_immediately          = true
+  vpc_security_group_ids     = var.vpc_security_group_ids
+  storage_type               = var.storage_type
 
   timeouts {
     create = "3h"

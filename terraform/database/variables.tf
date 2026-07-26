@@ -54,6 +54,18 @@ variable "encrypt_storage" {
   default     = true
 }
 
+variable "vpc_security_group_ids" {
+  description = "A list of VPC security group IDs to associate with the DB instance"
+  type        = list(string)
+  default     = []
+}
+
+variable "storage_type" {
+  description = "Type of volume storage"
+  type        = string
+  default     = "gp3"
+}
+
 variable "tags" {
   description = "A map of tags to assign to the resource"
   type        = map(string)
