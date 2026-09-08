@@ -15,8 +15,13 @@ helm upgrade --install "$RELEASE_NAME" "$SCRIPT_DIR" \
   -f "$SCRIPT_DIR/values-secrets.yaml" \
   -f "$SCRIPT_DIR/values-litellm.yaml" \
   -f "$SCRIPT_DIR/values-bifrost.yaml" \
+  -f "$SCRIPT_DIR/values-comfyui.yaml" \
+  -f "$SCRIPT_DIR/values-vllm.yaml" \
+  -f "$SCRIPT_DIR/values-ollama.yaml" \
+  -f "$SCRIPT_DIR/values-benchmark.yaml" \
   "$@"
 
 echo "Done. Check status with:"
 echo "  kubectl get pods -n ${NAMESPACE}"
 echo "  kubectl get ingress -n ${NAMESPACE}"
+echo "Run a benchmark with ./run-benchmark.sh perf|eval|terminal-bench (see BENCHMARKING.md)"

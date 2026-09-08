@@ -1,0 +1,7 @@
+guidellm>=0.3.0
+inspect-ai>=0.3.80
+inspect-evals>=0.3.0
+boto3>=1.34
+pandas>=2.2
+plotly>=5.22
+pyyaml>=6.0

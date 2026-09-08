@@ -3,8 +3,8 @@
 # ============================================================
 litellm:
   image:
-    repository: 169446447120.dkr.ecr.ap-east-1.amazonaws.com/docker-hub/litellm/litellm
-    tag: v1.87.0
+    repository: litellm/litellm
+    tag: v1.100.0
     pullPolicy: Always
 
   containerPort: 4000
@@ -86,6 +86,132 @@ litellm:
 
   secrets: {}
 
+  # Shortens client-supplied tool/function names over 64 chars (e.g. MCP
+  # names like "mcp__app__group___action") before they reach the provider,
+  # and restores the original name in the response. LiteLLM's own MCP
+  # gateway naming (LITELLM_USE_SHORT_MCP_TOOL_PREFIX below) only rewrites
+  # names it builds itself and never touches a client-supplied `tools`
+  # array, and Bedrock's own tool-name sanitizer only fixes character-set
+  # violations, never length - so an over-length name otherwise sails
+  # through and Bedrock rejects it with a 400. Loaded with zero image
+  # changes: LiteLLM resolves "custom_callbacks.proxy_handler_instance" by
+  # looking for custom_callbacks.py next to config.yaml, and both live in
+  # this same ConfigMap, mounted together at /etc/litellm.
+  extraConfig:
+    custom_callbacks.py: |
+      """
+      Shortens client-supplied tool/function names over MAX_TOOL_NAME_LENGTH
+      before they reach the model provider, and restores the original names
+      in the response so the rewrite is invisible to the caller.
+
+      Why: some MCP-aggregating clients flatten "server + toolgroup + tool"
+      into a single name (e.g.
+      "mcp__codex_apps__codex_document_control___execute_document_command").
+      Bedrock's Converse API (and OpenAI) reject any tool name over 64
+      characters. LiteLLM's own MCP gateway naming
+      (LITELLM_USE_SHORT_MCP_TOOL_PREFIX) only rewrites names it builds
+      itself from its mcp_servers registry - it never touches a
+      client-supplied `tools` array - and Bedrock's own
+      make_valid_bedrock_tool_name only fixes character-set violations,
+      never length. So an over-length name sails through untouched and the
+      provider 400s.
+
+      The rewrite is a pure function of the name (truncate + deterministic
+      hash suffix), so no per-request or cross-replica state is needed for
+      the forward direction. The reverse map travels with the request via
+      data["metadata"] because a hash can't be un-hashed.
+      """
+
+      import hashlib
+
+      from litellm.integrations.custom_logger import CustomLogger
+
+      MAX_TOOL_NAME_LENGTH = 64
+      _HASH_LEN = 8
+      _METADATA_KEY = "litellm_shortened_tool_names"
+
+
+      def _hash_suffix(name: str, attempt: int) -> str:
+          seed = name if attempt == 0 else f"{name}#{attempt}"
+          return hashlib.sha1(seed.encode("utf-8")).hexdigest()[:_HASH_LEN]
+
+
+      def _shorten(name: str, taken: dict) -> str:
+          """Deterministically shorten `name` to MAX_TOOL_NAME_LENGTH chars.
+
+          `taken` maps short_name -> original_name already assigned in this
+          request; used only to resolve a truncation collision between two
+          different long names, not to cache repeat lookups of the same name.
+          """
+          if len(name) <= MAX_TOOL_NAME_LENGTH:
+              return name
+          keep = MAX_TOOL_NAME_LENGTH - _HASH_LEN - 1
+          attempt = 0
+          while True:
+              short = f"{name[:keep]}_{_hash_suffix(name, attempt)}"
+              existing = taken.get(short)
+              if existing is None or existing == name:
+                  return short
+              attempt += 1
+
+
+      class ShortenLongToolNames(CustomLogger):
+          async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
+              tools = data.get("tools")
+              if not tools:
+                  return data
+
+              forward_map = {}  # original -> short
+              reverse_map = {}  # short -> original
+
+              for tool in tools:
+                  fn = tool.get("function") if isinstance(tool, dict) else None
+                  if not fn or not fn.get("name"):
+                      continue
+                  original = fn["name"]
+                  short = _shorten(original, reverse_map)
+                  if short != original:
+                      fn["name"] = short
+                      forward_map[original] = short
+                      reverse_map[short] = original
+
+              if not reverse_map:
+                  return data
+
+              tool_choice = data.get("tool_choice")
+              if isinstance(tool_choice, dict):
+                  choice_fn = tool_choice.get("function")
+                  if choice_fn and choice_fn.get("name") in forward_map:
+                      choice_fn["name"] = forward_map[choice_fn["name"]]
+
+              data.setdefault("metadata", {})[_METADATA_KEY] = reverse_map
+              return data
+
+          def _restore(self, data, tool_calls):
+              reverse_map = (data.get("metadata") or {}).get(_METADATA_KEY)
+              if not reverse_map or not tool_calls:
+                  return
+              for call in tool_calls:
+                  fn = getattr(call, "function", None)
+                  if fn is not None and fn.name in reverse_map:
+                      fn.name = reverse_map[fn.name]
+
+          async def async_post_call_success_hook(self, data, user_api_key_dict, response):
+              for choice in getattr(response, "choices", None) or []:
+                  message = getattr(choice, "message", None)
+                  self._restore(data, getattr(message, "tool_calls", None))
+              return response
+
+          async def async_post_call_streaming_iterator_hook(self, user_api_key_dict, response, request_data):
+              async for chunk in response:
+                  for choice in getattr(chunk, "choices", None) or []:
+                      delta = getattr(choice, "delta", None)
+                      self._restore(request_data, getattr(delta, "tool_calls", None))
+                  yield chunk
+
+
+      proxy_handler_instance = ShortenLongToolNames()
+
   config:
     set_verbose: true
     cache: false
@@ -103,30 +229,37 @@ litellm:
       LANGFUSE_SECRET_KEY: "sk-lf-6078ab40-dfa9-4a9b-930b-a7ec2035aba2"
       LANGFUSE_PUBLIC_KEY: "pk-lf-b6d3ca43-6ee3-4f22-82b3-9e90a8bae168"
       LANGFUSE_HOST: "http://op-langfuse-web.observability.svc.cluster.local:3000"
+      LITELLM_LOG: "WARNING"
+      LITELLM_USE_SHORT_MCP_TOOL_PREFIX: "true"
 
     litellm_settings:
-      drop_params: true
-      success_callback: ["langfuse"]
-      failure_callback: ["langfuse"]
+      drop_params: false
       callbacks:
+        - "langfuse"
         - "prometheus"
         - "s3_v2"
         - "websearch_interception"
+        # - "custom_callbacks.proxy_handler_instance"
       websearch_interception_params:
-        enabled_providers: ["openai", "bedrock", "azure", "vertex_ai"]
+        enabled_providers: ["openai", "bedrock", "bedrock_mantle", "azure", "vertex_ai"]
         search_tool_name: searxng-search
       prometheus_initialize_budget_metrics: true
       s3_callback_params:
-        s3_bucket_name: ai-platform-logs-169446447120-ap-east-1-an # AWS Bucket Name for S3
-        s3_region_name: ap-east-1 # AWS Region Name for S3
+        s3_bucket_name: ai-platform-logs-386865647718-us-east-1-an # AWS Bucket Name for S3
+        s3_region_name: us-east-1 # AWS Region Name for S3
       require_auth_for_metrics_endpoint: false
       route_all_chat_openai_to_responses: true
+      set_verbose: false
+      json_logs: true
 
     general_settings:
       allow_requests_on_db_unavailable: true
+      disable_health_check_logs: true
       database_url: os.environ/DATABASE_URL
+      proxy_batch_write_at: 60
+      proxy_config_reload_interval_seconds: 30
       store_model_in_db: true
-      store_prompts_in_spend_logs: false
+      store_prompts_in_spend_logs: true
       public_routes:
         - "LiteLLMRoutes.public_routes"
         - "/health/*"

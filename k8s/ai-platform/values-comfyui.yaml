@@ -1,0 +1,23 @@
+comfyui:
+  enabled: false
+  image:
+    repository: 386865647718.dkr.ecr.us-east-1.amazonaws.com/comfyui
+    tag: latest
+  persistentVolume:
+    size: 500Gi
+    s3Bucket:
+      name: model-weights-386865647718-us-east-1-an
+      region: us-east-1
+  nodeSelector:
+      internal: "true"
+      compute: "gpu"
+      # node.kubernetes.io/instance-type: g6.2xlarge
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+    - key: ray.io/node-type
+      operator: Equal
+      value: "worker"
+      effect: NoSchedule

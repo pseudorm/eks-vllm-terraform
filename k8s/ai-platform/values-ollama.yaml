@@ -1,0 +1,67 @@
+ollama: 
+  enabled: false
+  replicaCount: 1
+
+  image:
+    repository: public.ecr.aws/neuron/pytorch-inference-vllm-neuronx
+    tag: 0.16.0-neuronx-py312-sdk2.29.1-ubuntu24.04
+    pullPolicy: Always
+
+  containerPort: 8000
+  shmSize: 8Gi
+
+  service:
+    type: ClusterIP
+    port: 8000
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+  securityContext:
+    capabilities:
+      add:
+        - SYS_ADMIN
+        - IPC_LOCK
+
+  resources:
+    limits:
+      cpu: 4
+      memory: 24Gi
+      aws.amazon.com/neuron: 1
+    requests:
+      cpu: 4
+      memory: 24Gi
+      aws.amazon.com/neuron: 1
+
+  nodeSelector:
+    internal: "true"
+    compute: gpu
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              # Use the standard instance-type label
+              - key: node.kubernetes.io/instance-type
+                operator: In
+                values:
+                  - g6.12xlarge
+                  - g6.16xlarge
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+    - key: ray.io/node-type
+      operator: Equal
+      value: worker
+      effect: NoSchedule
+
+  config: |
+    model: cyankiwi/Qwen3.5-9B-AWQ-4bit
+    dtype: bfloat16
+    max-model-len: 8192
+    gpu-memory-utilization: 0.95
+    enable-chunked-prefill: true

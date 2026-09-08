@@ -1,0 +1,148 @@
+# ============================================================
+# Benchmark - LLM performance (guidellm) + capability (inspect_ai, terminal-bench)
+# ============================================================
+benchmark:
+  enabled: true
+
+  # Which one-off Job to render. Empty = none, so a plain `helm upgrade` of the
+  # platform never launches a benchmark run. run-benchmark.sh sets this per invocation.
+  # Valid: "" | perf | eval | terminal-bench
+  run: ""
+
+  # Set per-run by run-benchmark.sh; only used to name the Job.
+  runId: ""
+
+  # ------------------------------------------------------------
+  # What we're benchmarking. Service names are derived from the release,
+  # so these track whatever the chart actually deployed.
+  # ------------------------------------------------------------
+  target:
+    # Must match vllm.runtimeArgs.model / --served-model-name in values-vllm.yaml
+    # and the model alias registered in LiteLLM.
+    servedModelName: "REPLACE_WITH_SERVED_MODEL_NAME"
+
+    # vLLM's own OpenAI-compatible endpoint, bypassing LiteLLM (raw engine numbers).
+    vllmDirect:
+      enabled: true
+      apiKey: "" # vLLM has no auth by default
+
+    # Through LiteLLM's data plane (the real production path: auth, routing, gateway overhead).
+    litellm:
+      enabled: true
+
+  # LiteLLM virtual key with access to target.servedModelName.
+  # Override in values-secrets.yaml (gitignored) - do not commit a real key here.
+  litellmApiKey: ""
+
+  # ------------------------------------------------------------
+  # Results storage - S3 via mountpoint-s3-csi, same pattern as vllm.persistentVolume
+  # ------------------------------------------------------------
+  results:
+    size: 100Gi
+    s3Bucket:
+      # Bucket must exist AND be listed in the s3-csi-driver pod identity's
+      # mountpoint_s3_csi_bucket_arns in terraform/eks-ai-use1-cluster/pod_identities.tf
+      # before this PVC will bind.
+      name: "llm-benchmark-results-386865647718-us-east-1-an"
+      region: "us-east-1"
+
+  # ------------------------------------------------------------
+  # Images (built by images/benchmark/build_and_push.sh)
+  # ------------------------------------------------------------
+  runnerImage:
+    repository: "386865647718.dkr.ecr.us-east-1.amazonaws.com/llm-benchmark-runner"
+    tag: "latest"
+    pullPolicy: Always
+
+  terminalBenchImage:
+    repository: "386865647718.dkr.ecr.us-east-1.amazonaws.com/llm-benchmark-terminal-bench"
+    tag: "latest"
+    pullPolicy: Always
+
+  # Runner Jobs and viewers only make HTTP calls to the vLLM/LiteLLM Services - no GPU.
+  nodeSelector:
+    internal: "true"
+    compute: "cpu"
+    processor: "amd64"
+    workload: "general-purpose"
+
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+  # ------------------------------------------------------------
+  # Performance benchmark (guidellm)
+  # ------------------------------------------------------------
+  perf:
+    concurrencyLevels: [1, 2, 4, 8, 16, 32, 64, 128]
+    maxSecondsPerLevel: 120
+    maxRequestsPerLevel: 200
+    promptTokens: 512
+    outputTokens: 256
+
+  # ------------------------------------------------------------
+  # Capability evals (inspect_ai / inspect_evals)
+  # ------------------------------------------------------------
+  evals:
+    tasks:
+      - hle
+      - humaneval
+      - mbpp
+      - bigcodebench
+    maxConnections: 16
+    logLimit: 100 # samples per task, keeps runs bounded by default
+
+  # ------------------------------------------------------------
+  # Terminal-Bench v2 (privileged docker-in-docker sidecar)
+  # ------------------------------------------------------------
+  terminalBench:
+    agent: terminus
+    datasetName: terminal-bench-core
+    datasetVersion: "2.0.0" # confirm with `tb datasets list` before a real run
+    nConcurrent: 4
+
+    # Deliberately a DIFFERENT nodepool from benchmark.nodeSelector above: the dind
+    # sidecar runs privileged, and a privileged escape compromises the NODE, not just
+    # the namespace, so node placement is the control that matters.
+    #
+    # "hpc" (cpu-hpc-amd64-ec2) is the only workload label no other ai-platform
+    # component requests -- the LiteLLM control plane and Open-WebUI are on
+    # general-purpose, the LiteLLM data plane is on compute-optimized. Check with:
+    #   grep -rh 'workload:' values*.yaml | sort -u
+    # before changing this, so the privileged pod doesn't end up co-scheduled with
+    # the serving path. The nodepool has no taint, so this is convention, not
+    # enforcement -- add a taint + toleration if you want it guaranteed.
+    nodeSelector:
+      internal: "true"
+      compute: "cpu"
+      processor: "amd64"
+      workload: "hpc"
+
+    dind:
+      resources:
+        requests:
+          cpu: "2"
+          memory: 4Gi
+        limits:
+          cpu: "4"
+          memory: 8Gi
+
+  # ------------------------------------------------------------
+  # Result viewers. Perf reports join the platform ALB at /benchmarks/perf;
+  # the eval viewer is ClusterIP-only (see templates/benchmark/eval-viewer.yaml).
+  # ------------------------------------------------------------
+  viewers:
+    perf:
+      enabled: true
+      image: "nginx:1.27-alpine"
+      service:
+        port: 8080
+    evals:
+      enabled: true
+      image: "" # defaults to runnerImage, which already has inspect-ai
+      service:
+        port: 7575
