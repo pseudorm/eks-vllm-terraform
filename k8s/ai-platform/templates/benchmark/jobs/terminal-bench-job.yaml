@@ -1,0 +1,89 @@
+{{/*
+Rendered ONLY when benchmark.run=terminal-bench (run-benchmark.sh sets this).
+
+This is the one benchmark component that needs a privileged container: Terminal-Bench
+gives the agent its own Docker sandbox per task, so it needs a working Docker daemon.
+A privileged escape compromises the NODE, not just the namespace, so the mitigation
+that matters is node placement -- benchmark.terminalBench.nodeSelector targets the
+"hpc" nodepool, the only workload label no other ai-platform component requests, so
+this never lands on a node running the serving path. It also runs with the namespace
+default ServiceAccount and automountServiceAccountToken: false, so it never picks up
+the litellm pod identity's S3/Bedrock permissions.
+*/}}
+{{- if and .Values.benchmark.enabled (eq .Values.benchmark.run "terminal-bench") -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-benchmark-tbench-{{ include "ai-platform.benchmark.runId" . }}
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: benchmark-terminal-bench
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 43200
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "ai-platform.componentLabels" . | nindent 8 }}
+        app.kubernetes.io/component: benchmark-terminal-bench
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      nodeSelector:
+        {{- toYaml .Values.benchmark.terminalBench.nodeSelector | nindent 8 }}
+      containers:
+        - name: dind
+          image: docker:26-dind
+          securityContext:
+            privileged: true
+          env:
+            - name: DOCKER_TLS_CERTDIR
+              value: ""
+          resources:
+            {{- toYaml .Values.benchmark.terminalBench.dind.resources | nindent 12 }}
+          volumeMounts:
+            - name: docker-graph-storage
+              mountPath: /var/lib/docker
+          readinessProbe:
+            exec:
+              command: ["docker", "info"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 24
+        - name: tb-runner
+          image: "{{ .Values.benchmark.terminalBenchImage.repository }}:{{ .Values.benchmark.terminalBenchImage.tag }}"
+          imagePullPolicy: {{ .Values.benchmark.terminalBenchImage.pullPolicy }}
+          command: ["python", "/app/run_terminal_bench.py"]
+          args:
+            - "--config=/etc/benchmark/config.yaml"
+            - "--run-id={{ include "ai-platform.benchmark.runId" . }}"
+          env:
+            - name: DOCKER_HOST
+              value: "tcp://localhost:2375"
+            # terminal-bench routes models through litellm; "openai/<model>" plus these
+            # two vars is litellm's convention for a custom OpenAI-compatible base URL.
+            - name: OPENAI_API_BASE
+              value: {{ include "ai-platform.benchmark.litellmBaseUrl" . | quote }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ai-platform.fullname" . }}-benchmark-secrets
+                  key: litellmApiKey
+          resources:
+            {{- toYaml .Values.benchmark.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/benchmark
+            - name: results
+              mountPath: /results
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "ai-platform.fullname" . }}-benchmark-config
+        - name: results
+          persistentVolumeClaim:
+            claimName: {{ include "ai-platform.fullname" . }}-benchmark-results-pvc
+        - name: docker-graph-storage
+          emptyDir: {}
+{{- end }}

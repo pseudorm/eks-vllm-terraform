@@ -1,0 +1,58 @@
+
+{{- if .Values.ollama.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+spec:
+  replicas: 1
+  selector: 
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      serviceAccountName: {{ include "ai-platform.fullname" . }}-litellm
+      {{- with .Values.ollama.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ollama.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: ollama
+          image: {{ .Values.ollama.image.repository }}
+          tag: {{ .Values.ollama.image.tag }}
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 11434
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+          env:
+          - name: PYTORCH_CUDA_ALLOC_CONF
+            value: max_split_size_mb:512
+          volumeMounts:
+          - mountPath: /app/models
+            name: model-weights-s3
+      volumes:
+      - name: model-weights-s3
+        persistentVolumeClaim:
+          claimName: {{ include "ai-platform.fullname" . }}-ollama-s3-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+spec:
+  selector:
+    app: ollama
+  ports:
+    - protocol: TCP
+      port: 8188
+      targetPort: 8188
+{{- end }}

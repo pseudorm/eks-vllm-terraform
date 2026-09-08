@@ -1,0 +1,36 @@
+{{- if .Values.benchmark.enabled -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-benchmark-results-pvc
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: {{ .Values.benchmark.results.size }}
+  volumeName: {{ include "ai-platform.fullname" . }}-benchmark-results-pv
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-benchmark-results-pv
+spec:
+  capacity:
+    storage: {{ .Values.benchmark.results.size }}
+  accessModes:
+    - ReadWriteMany
+  mountOptions:
+    - allow-delete
+    - allow-other
+    - uid=1000
+    - gid=1000
+    - region={{ .Values.benchmark.results.s3Bucket.region }}
+  csi:
+    driver: s3.csi.aws.com
+    volumeHandle: benchmark-results-s3-csi-driver-volume
+    volumeAttributes:
+      bucketName: {{ .Values.benchmark.results.s3Bucket.name }}
+{{- end }}

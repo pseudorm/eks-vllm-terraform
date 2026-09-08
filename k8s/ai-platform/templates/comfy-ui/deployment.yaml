@@ -1,0 +1,62 @@
+
+{{- if .Values.comfyui.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comfyui
+spec:
+  replicas: 1
+  selector: 
+    matchLabels:
+      app: comfyui
+  template:
+    metadata:
+      labels:
+        app: comfyui
+    spec:
+      serviceAccountName: {{ include "ai-platform.fullname" . }}-litellm
+      {{- with .Values.comfyui.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.comfyui.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: comfyui
+          image: {{ .Values.comfyui.image.repository }}
+          tag: {{ .Values.comfyui.image.tag }}
+          imagePullPolicy: Always
+          ports:
+          - name: http
+            containerPort: 8188
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+          env:
+          - name: PYTORCH_CUDA_ALLOC_CONF
+            value: max_split_size_mb:512
+          volumeMounts:
+            - mountPath: /app/models
+              name: model-weights-s3
+      volumes:
+      - name: model-weights-s3
+        persistentVolumeClaim:
+          claimName: {{ include "ai-platform.fullname" . }}-comfyui-s3-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: comfyui
+  annotations:
+    alb.ingress.kubernetes.io/healthcheck-path: /system_stats
+spec:
+  selector:
+    app: comfyui
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8188
+      targetPort: http
+{{- end }}

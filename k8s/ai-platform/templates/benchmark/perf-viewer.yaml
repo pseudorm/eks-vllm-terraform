@@ -1,0 +1,83 @@
+{{- if and .Values.benchmark.enabled .Values.benchmark.viewers.perf.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-benchmark-perf-viewer-conf
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: benchmark-perf-viewer
+data:
+  default.conf: |
+    server {
+      listen {{ .Values.benchmark.viewers.perf.service.port }};
+      root /usr/share/nginx/html;
+      location /benchmarks/perf/ {
+        alias /usr/share/nginx/html/perf/;
+        autoindex on;
+      }
+      location = /benchmarks/perf {
+        return 302 /benchmarks/perf/;
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-benchmark-perf-viewer
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: benchmark-perf-viewer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ai-platform.benchmarkPerfViewer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ai-platform.benchmarkPerfViewer.selectorLabels" . | nindent 8 }}
+    spec:
+      nodeSelector:
+        {{- toYaml .Values.benchmark.nodeSelector | nindent 8 }}
+      containers:
+        - name: nginx
+          image: {{ .Values.benchmark.viewers.perf.image }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.benchmark.viewers.perf.service.port }}
+          readinessProbe:
+            httpGet:
+              path: /benchmarks/perf/
+              port: http
+          volumeMounts:
+            - name: conf
+              mountPath: /etc/nginx/conf.d
+            - name: results
+              mountPath: /usr/share/nginx/html/perf
+              subPath: perf
+              readOnly: true
+      volumes:
+        - name: conf
+          configMap:
+            name: {{ include "ai-platform.fullname" . }}-benchmark-perf-viewer-conf
+        - name: results
+          persistentVolumeClaim:
+            claimName: {{ include "ai-platform.fullname" . }}-benchmark-results-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-benchmark-perf-viewer
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: benchmark-perf-viewer
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.benchmark.viewers.perf.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "ai-platform.benchmarkPerfViewer.selectorLabels" . | nindent 4 }}
+{{- end }}

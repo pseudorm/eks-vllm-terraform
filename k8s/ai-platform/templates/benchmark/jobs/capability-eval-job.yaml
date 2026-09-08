@@ -1,0 +1,57 @@
+{{/*
+Rendered ONLY when benchmark.run=eval (run-benchmark.sh sets this).
+*/}}
+{{- if and .Values.benchmark.enabled (eq .Values.benchmark.run "eval") -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-benchmark-eval-{{ include "ai-platform.benchmark.runId" . }}
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: benchmark-eval
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 43200
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "ai-platform.componentLabels" . | nindent 8 }}
+        app.kubernetes.io/component: benchmark-eval
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        {{- toYaml .Values.benchmark.nodeSelector | nindent 8 }}
+      containers:
+        - name: inspect-runner
+          image: "{{ .Values.benchmark.runnerImage.repository }}:{{ .Values.benchmark.runnerImage.tag }}"
+          imagePullPolicy: {{ .Values.benchmark.runnerImage.pullPolicy }}
+          command: ["python", "/app/run_capability_eval.py"]
+          args:
+            - "--config=/etc/benchmark/config.yaml"
+            - "--run-id={{ include "ai-platform.benchmark.runId" . }}"
+          env:
+            # inspect_ai's openai-api provider reads <PROVIDER>_BASE_URL / <PROVIDER>_API_KEY.
+            # Provider name is "litellm", so: LITELLM_BASE_URL / LITELLM_API_KEY.
+            - name: LITELLM_BASE_URL
+              value: {{ include "ai-platform.benchmark.litellmBaseUrl" . | quote }}
+            - name: LITELLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ai-platform.fullname" . }}-benchmark-secrets
+                  key: litellmApiKey
+          resources:
+            {{- toYaml .Values.benchmark.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/benchmark
+            - name: results
+              mountPath: /results
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "ai-platform.fullname" . }}-benchmark-config
+        - name: results
+          persistentVolumeClaim:
+            claimName: {{ include "ai-platform.fullname" . }}-benchmark-results-pvc
+{{- end }}

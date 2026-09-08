@@ -7,6 +7,9 @@ metadata:
     {{- include "ai-platform.componentLabels" . | nindent 4 }}
     app.kubernetes.io/component: litellm
 data:
+  {{- with .Values.litellm.extraConfig }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
   config.yaml: |
     {{- toYaml .Values.litellm.config | nindent 4 }}
 {{- end }}

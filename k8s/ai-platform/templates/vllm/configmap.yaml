@@ -7,6 +7,9 @@ metadata:
     {{- include "ai-platform.componentLabels" . | nindent 4 }}
     app.kubernetes.io/component: vllm
 data:
+  {{- with .Values.vllm.extraConfig }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
   config.yaml: |
-    {{- .Values.vllm.config | nindent 4 }}
+    {{- .Values.vllm.runtimeArgs | nindent 4 }}
 {{- end }}

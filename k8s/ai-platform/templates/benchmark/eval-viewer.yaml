@@ -1,0 +1,67 @@
+{{- if and .Values.benchmark.enabled .Values.benchmark.viewers.evals.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-benchmark-eval-viewer
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: benchmark-eval-viewer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ai-platform.benchmarkEvalViewer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ai-platform.benchmarkEvalViewer.selectorLabels" . | nindent 8 }}
+    spec:
+      nodeSelector:
+        {{- toYaml .Values.benchmark.nodeSelector | nindent 8 }}
+      containers:
+        - name: inspect-view
+          image: {{ include "ai-platform.benchmark.evalViewerImage" . | quote }}
+          command:
+            - inspect
+            - view
+            - --log-dir
+            - /results/evals
+            - --host
+            - 0.0.0.0
+            - --port
+            - {{ .Values.benchmark.viewers.evals.service.port | quote }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.benchmark.viewers.evals.service.port }}
+          volumeMounts:
+            - name: results
+              mountPath: /results
+              readOnly: true
+      volumes:
+        - name: results
+          persistentVolumeClaim:
+            claimName: {{ include "ai-platform.fullname" . }}-benchmark-results-pvc
+---
+{{/*
+ClusterIP only, deliberately NOT on the platform ALB: `inspect view` has no
+path-prefix/base-path support (so it can't live under /benchmarks/... on a shared
+listener) and no auth beyond --trusted-origin. Reach it with:
+  kubectl -n <namespace> port-forward svc/<release>-benchmark-eval-viewer 7575:7575
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-benchmark-eval-viewer
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: benchmark-eval-viewer
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.benchmark.viewers.evals.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "ai-platform.benchmarkEvalViewer.selectorLabels" . | nindent 4 }}
+{{- end }}

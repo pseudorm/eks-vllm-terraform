@@ -35,7 +35,7 @@ spec:
     - http:
         paths:
           {{- if .Values.litellm.controlPlane.enabled }}
-          - path: /litellm-control
+          - path: /litellm
             pathType: Prefix
             backend:
               service:
@@ -44,7 +44,7 @@ spec:
                   number: {{ .Values.litellm.service.port }}
           {{- end }}
           {{- if .Values.litellm.dataPlane.enabled }}
-          - path: /litellm
+          - path: /litellm-data
             pathType: Prefix
             backend:
               service:
@@ -78,5 +78,23 @@ spec:
                 name: {{ .Release.Name }}-mcp-searxng
                 port:
                   number: {{ .Values.mcpSearxng.service.port }}
+          {{- end }}
+          {{- if .Values.vllm.enabled }}
+          - path: /vllm
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-vllm
+                port:
+                  number: {{ .Values.vllm.service.port }}
+          {{- end }}
+          {{- if and .Values.benchmark.enabled .Values.benchmark.viewers.perf.enabled }}
+          - path: /benchmarks/perf
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-benchmark-perf-viewer
+                port:
+                  number: {{ .Values.benchmark.viewers.perf.service.port }}
           {{- end }}
 {{- end }}

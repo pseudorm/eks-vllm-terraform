@@ -1,0 +1,36 @@
+{{- if .Values.comfyui.enabled -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-comfyui-s3-pvc
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: {{ .Values.comfyui.persistentVolume.size }}
+  volumeName: {{ include "ai-platform.fullname" . }}-comfyui-s3-pv
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-comfyui-s3-pv
+spec:
+  capacity:
+    storage: {{ .Values.comfyui.persistentVolume.size }}
+  accessModes:
+    - ReadWriteMany
+  mountOptions:
+    - allow-delete
+    - allow-other
+    - uid=1000
+    - gid=1000
+    - region={{ .Values.comfyui.persistentVolume.s3Bucket.region }}
+  csi:
+    driver: s3.csi.aws.com
+    volumeHandle: s3-csi-driver-volume
+    volumeAttributes:
+      bucketName: {{ .Values.comfyui.persistentVolume.s3Bucket.name }}
+{{- end }}

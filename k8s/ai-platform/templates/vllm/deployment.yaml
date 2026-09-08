@@ -10,6 +10,8 @@ spec:
   {{- if not .Values.vllm.autoscaling.enabled }}
   replicas: {{ .Values.vllm.replicaCount }}
   {{- end }}
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "ai-platform.vllm.selectorLabels" . | nindent 6 }}
@@ -18,6 +20,7 @@ spec:
       labels:
         {{- include "ai-platform.vllm.selectorLabels" . | nindent 8 }}
     spec:
+      serviceAccountName: {{ include "ai-platform.fullname" . }}-litellm
       containers:
         - name: vllm
           image: "{{ .Values.vllm.image.repository }}:{{ .Values.vllm.image.tag }}"
@@ -59,7 +62,19 @@ spec:
               mountPath: /dev/shm
             - name: config
               mountPath: /etc/vllm
+            - name: s3-mount
+              mountPath: /app/models
+            # Local disk cache for HF downloads — Mountpoint-S3 doesn't support the
+            # symlinks huggingface_hub's cache_dir download uses, so this shadows the
+            # download-dir subpath with node-local (RAID0 instance store) storage.
+            - name: model-cache
+              mountPath: /app/models/vllm
       volumes:
+        - name: s3-mount
+          persistentVolumeClaim:
+            claimName: {{ include "ai-platform.fullname" . }}-vllm-s3-pvc
+        - name: model-cache
+          emptyDir: {}
         - name: shm
           emptyDir:
             medium: Memory
@@ -70,6 +85,11 @@ spec:
       {{- with .Values.vllm.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.vllm.nodeAffinity }}
+      affinity:
+        nodeAffinity:
+          {{- toYaml . | nindent 10 }}
       {{- end }}
       {{- with .Values.vllm.tolerations }}
       tolerations:

@@ -1,0 +1,56 @@
+{{/*
+Rendered ONLY when benchmark.run=perf (run-benchmark.sh sets this). A plain
+`helm upgrade` of the platform leaves benchmark.run empty and launches nothing.
+*/}}
+{{- if and .Values.benchmark.enabled (eq .Values.benchmark.run "perf") -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-benchmark-perf-{{ include "ai-platform.benchmark.runId" . }}
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: benchmark-perf
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 21600
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "ai-platform.componentLabels" . | nindent 8 }}
+        app.kubernetes.io/component: benchmark-perf
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        {{- toYaml .Values.benchmark.nodeSelector | nindent 8 }}
+      containers:
+        - name: guidellm-runner
+          image: "{{ .Values.benchmark.runnerImage.repository }}:{{ .Values.benchmark.runnerImage.tag }}"
+          imagePullPolicy: {{ .Values.benchmark.runnerImage.pullPolicy }}
+          command: ["python", "/app/run_perf_benchmark.py"]
+          args:
+            - "--config=/etc/benchmark/config.yaml"
+            - "--run-id={{ include "ai-platform.benchmark.runId" . }}"
+          env:
+            - name: BENCHMARK_VLLM_API_KEY
+              value: {{ .Values.benchmark.target.vllmDirect.apiKey | default "" | quote }}
+            - name: BENCHMARK_LITELLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ai-platform.fullname" . }}-benchmark-secrets
+                  key: litellmApiKey
+          resources:
+            {{- toYaml .Values.benchmark.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/benchmark
+            - name: results
+              mountPath: /results
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "ai-platform.fullname" . }}-benchmark-config
+        - name: results
+          persistentVolumeClaim:
+            claimName: {{ include "ai-platform.fullname" . }}-benchmark-results-pvc
+{{- end }}

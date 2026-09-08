@@ -1,0 +1,44 @@
+{{- if .Values.benchmark.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ai-platform.fullname" . }}-benchmark-config
+  labels:
+    {{- include "ai-platform.componentLabels" . | nindent 4 }}
+    app.kubernetes.io/component: benchmark
+data:
+  config.yaml: |
+    served_model_name: {{ .Values.benchmark.target.servedModelName | quote }}
+
+    targets:
+      {{- if and .Values.benchmark.target.vllmDirect.enabled .Values.vllm.enabled }}
+      vllm-direct:
+        base_url: {{ include "ai-platform.benchmark.vllmBaseUrl" . | quote }}
+        api_key_env: BENCHMARK_VLLM_API_KEY
+      {{- end }}
+      {{- if and .Values.benchmark.target.litellm.enabled .Values.litellm.dataPlane.enabled }}
+      litellm:
+        base_url: {{ include "ai-platform.benchmark.litellmBaseUrl" . | quote }}
+        api_key_env: BENCHMARK_LITELLM_API_KEY
+      {{- end }}
+
+    perf:
+      concurrency_levels: {{ .Values.benchmark.perf.concurrencyLevels | toJson }}
+      max_seconds_per_level: {{ .Values.benchmark.perf.maxSecondsPerLevel }}
+      max_requests_per_level: {{ .Values.benchmark.perf.maxRequestsPerLevel }}
+      prompt_tokens: {{ .Values.benchmark.perf.promptTokens }}
+      output_tokens: {{ .Values.benchmark.perf.outputTokens }}
+
+    evals:
+      tasks: {{ .Values.benchmark.evals.tasks | toJson }}
+      max_connections: {{ .Values.benchmark.evals.maxConnections }}
+      log_limit: {{ .Values.benchmark.evals.logLimit }}
+
+    terminal_bench:
+      agent: {{ .Values.benchmark.terminalBench.agent | quote }}
+      dataset_name: {{ .Values.benchmark.terminalBench.datasetName | quote }}
+      dataset_version: {{ .Values.benchmark.terminalBench.datasetVersion | quote }}
+      n_concurrent: {{ .Values.benchmark.terminalBench.nConcurrent }}
+
+    results_root: /results
+{{- end }}

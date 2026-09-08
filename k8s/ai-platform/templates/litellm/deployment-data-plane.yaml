@@ -40,7 +40,7 @@ spec:
               protocol: TCP
           env:
             - name: SERVER_ROOT_PATH
-              value: "/litellm"
+              value: "/litellm-data"
             - name: DISABLE_ADMIN_UI
               value: "true"
             {{- with .Values.litellm.dataPlane.env }}
