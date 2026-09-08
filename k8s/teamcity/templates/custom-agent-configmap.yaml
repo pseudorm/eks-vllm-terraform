@@ -1,0 +1,20 @@
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: teamcity-agent-wait-for-docker
+data:
+  wait-for-docker.sh: |
+    #!/bin/bash
+    # /services/run-docker.sh (baked into the base image) starts dockerd via
+    # `service docker start`, which shells out through `sudo` internally --
+    # not present on this minimal Ubuntu image, so it silently fails and
+    # dockerd never launches at all (confirmed: no dockerd process in `top`).
+    # We're already root (runAsUser: 0), so sudo was never needed -- start
+    # dockerd ourselves directly instead of depending on that codepath.
+    dockerd &
+    for i in $(seq 1 300); do
+      docker info >/dev/null 2>&1 && echo "Docker daemon is ready" && exit 0
+      sleep 1
+    done
+    echo "Docker daemon did not become ready within 300s, continuing anyway"

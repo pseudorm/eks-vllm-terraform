@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: teamcity-server-proxy-nlb
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+    service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: "Environment=dev,Project=eks-ai-use1,auto-delete=false,auto-stop=no"
+    # Reuse the same SG as the ALB ingress rather than letting the controller
+    # auto-create a separate one -- it already has the required hub-VPC/same-VPC
+    # ingress rules. manage-backend-security-group-rules is left false (the
+    # default once a custom SG is given) because the node/cluster SGs already
+    # have their own inbound rules covering this traffic; letting the
+    # controller also add its own ingress rule there would be redundant.
+    service.beta.kubernetes.io/aws-load-balancer-security-groups: "sg-060cc981400089332"
+    service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules: "false"
+    # Without this, the controller defaults to a bare TCP check on port 80 --
+    # HAProxy's listener can be up while every backend behind it is broken.
+    # /login.html matches the chart's own default proxy.startupProbe, so this
+    # exercises the same HAProxy -> teamcity-server path that probe already does.
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: "HTTP"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "80"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: "/login.html"
+spec:
+  type: LoadBalancer
+  selector:
+    app: teamcity-server-proxy
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

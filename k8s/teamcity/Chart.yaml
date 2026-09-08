@@ -1,0 +1,11 @@
+apiVersion: v2
+name: teamcity
+description: Teamcity CI/CD platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: teamcity-server
+    version: 3.3.5
+    repository: "https://nefelim4ag.github.io/teamcity-charts/"
