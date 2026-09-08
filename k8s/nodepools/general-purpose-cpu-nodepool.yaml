@@ -58,14 +58,14 @@ metadata:
 spec:
   amiFamily: Bottlerocket
   amiSelectorTerms:
-    - id: ami-00a1b171294f24d1f
-  role: "karpenter-eks-node-group-20260303082358806200000004"
+    - id: ami-01e1150a3eee3c01b # bottlerocket-aws-k8s-1.36-x86_64-v1.62.0-49f1c7d2
+  role: "karpenter-eks-node-group-83e133e6a39377feb0c17d6365"
   subnetSelectorTerms:
     - tags:
-        karpenter.sh/discovery: eks-ai-ape1
+        karpenter.sh/discovery: eks-ai-use1
   securityGroupSelectorTerms:
     - tags:
-        karpenter.sh/discovery: eks-ai-ape1
+        karpenter.sh/discovery: eks-ai-use1
   metadataOptions:
     httpEndpoint: enabled
     httpProtocolIPv6: disabled
@@ -73,6 +73,8 @@ spec:
     httpTokens: required
   tags:
     nvidia.com/gpu: "false"
+    auto-delete: "false"
+    auto-stop: "false"
 
   blockDeviceMappings:
     - deviceName: /dev/xvda

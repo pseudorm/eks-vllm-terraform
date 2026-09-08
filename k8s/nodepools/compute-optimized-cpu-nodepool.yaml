@@ -15,16 +15,12 @@ spec:
         - key: "kubernetes.io/arch"
           operator: In
           values: ["amd64"]
-        - key: node.kubernetes.io/instance-type
+        - key: karpenter.k8s.aws/instance-category
           operator: In
-          values:
-            - "c7i-flex.xlarge"
-            - "c7i-flex.2xlarge"
+          values: ["c"]
         - key: "karpenter.sh/capacity-type"
           operator: In
-          values:
-            - "spot"
-            - "on-demand"
+          values: ["spot", "on-demand"]
       nodeClassRef:
         name: "compute-optimized-amd64-ec2"
         group: karpenter.k8s.aws
@@ -45,14 +41,14 @@ metadata:
 spec:
   amiFamily: Bottlerocket
   amiSelectorTerms:
-    - id: ami-00a1b171294f24d1f
-  role: "karpenter-eks-node-group-20260303082358806200000004"
+    - id: ami-01e1150a3eee3c01b # bottlerocket-aws-k8s-1.36-x86_64-v1.62.0-49f1c7d2
+  role: "karpenter-eks-node-group-83e133e6a39377feb0c17d6365"
   subnetSelectorTerms:
     - tags:
-        karpenter.sh/discovery: eks-ai-ape1
+        karpenter.sh/discovery: eks-ai-use1
   securityGroupSelectorTerms:
     - tags:
-        karpenter.sh/discovery: eks-ai-ape1
+        karpenter.sh/discovery: eks-ai-use1
   metadataOptions:
     httpEndpoint: enabled
     httpProtocolIPv6: disabled
@@ -60,12 +56,23 @@ spec:
     httpTokens: required
   tags:
     nvidia.com/gpu: "false"
-    "auto-delete": "false"
-    "auto-stop": "false"
+    auto-delete: "false"
+    auto-stop: "false"
 
   blockDeviceMappings:
+    # OS volume. Bottlerocket's own partitions (boot-a/b, root-a/b, etc.)
+    # live here with a small fixed layout -- this size does NOT affect
+    # container/ephemeral storage capacity, see:
+    # https://github.com/aws/karpenter-provider-aws/issues/6214
     - deviceName: /dev/xvda
       ebs:
         volumeSize: "30Gi"
+        volumeType: gp3
+        deleteOnTermination: true
+    # Data volume. This is what actually backs /var/lib/containerd,
+    # kubelet ephemeral-storage, and container writable layers.
+    - deviceName: /dev/xvdb
+      ebs:
+        volumeSize: "150Gi"
         volumeType: gp3
         deleteOnTermination: true
