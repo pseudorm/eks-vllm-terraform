@@ -9,16 +9,16 @@ terraform {
   }
 
   backend "s3" {
-    bucket       = "phcheng-ap-east-1-terraform-states"
+    bucket       = "terraform-states-386865647718-us-east-1-an"
     key          = "eks-ai.tfstate"
-    region       = "ap-east-1"
+    region       = "us-east-1"
     encrypt      = true
     use_lockfile = true
   }
 }
 
 provider "aws" {
-  region = "ap-east-1"
+  region = "us-east-1"
 }
 
 provider "helm" {

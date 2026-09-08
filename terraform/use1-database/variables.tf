@@ -10,9 +10,19 @@ variable "auto_minor_version_upgrade" {
   default     = true
 }
 
+variable "create_subnet_group" {
+  type    = bool
+  default = false
+}
+
 variable "subnet_group_name" {
   description = "The name of the DB subnet group"
   type        = string
+}
+
+variable "subnets" {
+  type    = list(string)
+  default = []
 }
 
 variable "db_engine" {
@@ -54,10 +64,22 @@ variable "encrypt_storage" {
   default     = true
 }
 
-variable "vpc_security_group_ids" {
-  description = "A list of VPC security group IDs to associate with the DB instance"
+variable "ingress_security_group_ids" {
+  description = "Security group IDs allowed to reach the DB on db_port. May include groups owned by the network account, since referencing a shared group as a rule source is permitted."
   type        = list(string)
   default     = []
+}
+
+variable "ingress_cidr_blocks" {
+  description = "CIDR blocks allowed to reach the DB on db_port. Use when a source security group reference is not usable."
+  type        = list(string)
+  default     = []
+}
+
+variable "db_port" {
+  description = "Port the database engine listens on"
+  type        = number
+  default     = 5432
 }
 
 variable "storage_type" {
